@@ -1,39 +1,33 @@
-# to-do:
-	# 1. Replace tabs with spaces.
-
-
-
-
-
 # Private Functions ----------------------------------------------------------------------------------------------------
 Function Build-RabbitMQ-Params {
-	param (
-		# rabbitmqctl parameter [-n node]
-		[Parameter(Mandatory=$false)]
-		[String] $Node=$null,
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
 
-		# rabbitmqctl parameter [-q (quiet)]
-		[Parameter(Mandatory=$false)]
-		[bool] $Quiet,
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [bool] $Quiet,
 
         # rabbitmqctl parameter [-t timeout]
         [Parameter(Mandatory=$false)]
         [int] $Timeout
-	)
+    )
 
     Write-Verbose "Building common RabbitMQ parameters"
+    [string[]] $rabbitControlParams = @()
 
-   	if ($Node -and $Node -ne "")
-	{
+    if ($Node -and $Node -ne "")
+    {
         Write-Verbose "Adding node parameter."
-		$rabbitControlParams = $rabbitControlParams + "-n $Node"
-	}
-		
-	if ($Quiet)
-	{
+        $rabbitControlParams = $rabbitControlParams + "-n $Node"
+    }
+        
+    if ($Quiet)
+    {
         Write-Verbose "Adding quiet parameter."
-		$rabbitControlParams = $rabbitControlParams + "-q"
-	}
+        $rabbitControlParams = $rabbitControlParams + "-q"
+    }
 
     if ($Timeout)
     {
@@ -55,24 +49,8 @@ Function Find-RabbitMQCtl {
 
     else
     {
-		Write-Error "Error:  Could not find rabbitmqctl.bat in user or system path.  Make sure rabbitmqctl is installed and its installation directory is in your system or user path."
+        Write-Error "Error:  Could not find rabbitmqctl.bat in user or system path.  Make sure rabbitmqctl is installed and its installation directory is in your system or user path."
         throw "Could not find rabbitmqctl.bat in user or system path.  Make sure rabbitmqctl is installed and its installation directory is in your system or user path."
-    }
-}
-
-Function Find-RabbitMQ-Plugins {
-    Write-Verbose "Checking for rabbitmq-plugins on the system path."
-    $rabbitCommand = Get-Command "rabbitmq-plugins.bat"
-    if ($?)
-    {
-        $rabbitPluginsPath = $rabbitCommand.Source
-        return $rabbitPluginsPath
-    }
-
-    else
-    {
-		Write-Error "Error:  Could not find rabbitmq-plugins.bat in user or system path.  Make sure rabbitmq-plugins is installed and its installation directory is in your system or user path."
-        throw "Could not find rabbitmq-plugins.bat in user or system path.  Make sure rabbitmq-plugins is installed and its installation directory is in your system or user path."
     }
 }
 
@@ -81,23 +59,6 @@ Function Find-RabbitMQ-Plugins {
 
 
 # Exported Module Functions --------------------------------------------------------------------------------------------
-Function Disable-RabbitMQ-Management {
-<#
-.SYNOPSIS
-    Disables the RabbitMQ Management Plugin.
-
-.DESCRIPTION
-    Disables the RabbitMQ Management Plugin.
-
-.EXAMPLE
-    
-    
-
-.FUNCTIONALITY
-    RabbitMQ
-#>
-}
-
 Function Reset-RabbitMQ {
 <#
 .SYNOPSIS
@@ -122,41 +83,41 @@ Function Reset-RabbitMQ {
     RabbitMQ
 #>
     [cmdletbinding()]
-	param (
-		# rabbitmqctl parameter [-n node]
-		[Parameter(Mandatory=$false)]
-		[String] $Node=$null,
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
 
-		# rabbitmqctl parameter [-q (quiet)]
-		[Parameter(Mandatory=$false)]
-		[switch] $Quiet
-	)
-	
-	Begin
-	{
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
         Write-Verbose "Begin: Reset-RabbitMQ"
-	}
-	
-	Process
-	{
-		Try
-		{
+    }
+    
+    Process
+    {
+        Try
+        {
             $rabbitControlPath = Find-RabbitMQCtl
-		}
-		
-		Catch
-		{
-			Break
-		}
+        }
+        
+        Catch
+        {
+            Break
+        }
 
         $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
 
         Write-Verbose "Adding command parameter."
-		$rabbitControlParams = $rabbitControlParams + "reset"
+        $rabbitControlParams = $rabbitControlParams + "reset"
 
         Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
-		Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
-	}
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
 
     End
     {
@@ -187,42 +148,42 @@ Function Start-RabbitMQ {
     RabbitMQ
 #>
     [cmdletbinding()]
-	param (
-		# rabbitmqctl parameter [-n node]
-		[Parameter(Mandatory=$false)]
-		[String] $Node=$null,
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
 
-		# rabbitmqctl parameter [-q (quiet)]
-		[Parameter(Mandatory=$false)]
-		[switch] $Quiet
-	)
-	
-	Begin
-	{
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
         Write-Verbose "Begin: Start-RabbitMQ"
-		[string[]] $rabbitControlParams = @()
-	}
-	
-	Process
-	{
-		Try
-		{
+        [string[]] $rabbitControlParams = @()
+    }
+    
+    Process
+    {
+        Try
+        {
             $rabbitControlPath = Find-RabbitMQCtl
-		}
-		
-		Catch
-		{
-			Break
-		}
+        }
+        
+        Catch
+        {
+            Break
+        }
 
         $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
 
         Write-Verbose "Adding command parameter."
-		$rabbitControlParams = $rabbitControlParams + "start_app"
+        $rabbitControlParams = $rabbitControlParams + "start_app"
 
         Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
-		Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
-	}
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
 
     End
     {
@@ -253,41 +214,41 @@ Function Stop-RabbitMQ {
     RabbitMQ
 #>
     [cmdletbinding()]
-	param (
-		# rabbitmqctl parameter [-n node]
-		[Parameter(Mandatory=$false)]
-		[String] $Node=$null,
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
 
-		# rabbitmqctl parameter [-q (quiet)]
-		[Parameter(Mandatory=$false)]
-		[switch] $Quiet
-	)
-	
-	Begin
-	{
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
         Write-Verbose "Begin: Stop-RabbitMQ"
-	}
-	
-	Process
-	{
-		Try
-		{
+    }
+    
+    Process
+    {
+        Try
+        {
             $rabbitControlPath = Find-RabbitMQCtl
-		}
-		
-		Catch
-		{
-			Break
-		}
+        }
+        
+        Catch
+        {
+            Break
+        }
 
         $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
 
         Write-Verbose "Adding command parameter."
-		$rabbitControlParams = $rabbitControlParams + "stop_app"
+        $rabbitControlParams = $rabbitControlParams + "stop_app"
 
         Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
-		Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
-	}
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
 
     End
     {
@@ -322,44 +283,44 @@ Function Wait-RabbitMQ {
 #>
     [cmdletbinding()]
     param (
-		# rabbitmqctl parameter [-n node]
-		[Parameter(Mandatory=$false)]
-		[String] $Node=$null,
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
 
         # rabbitmqctl parameter {pid_file}
         [Parameter(Mandatory=$true)]
         [ValidateNotNullOrEmpty()]
         [String] $PidFile,
 
-		# rabbitmqctl parameter [-q (quiet)]
-		[Parameter(Mandatory=$false)]
-		[switch] $Quiet
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
     )
 
-	Begin
-	{
+    Begin
+    {
         Write-Verbose "Begin: Wait-RabbitMQ"
-	}
-	
-	Process
-	{
-		Try
-		{
+    }
+    
+    Process
+    {
+        Try
+        {
             $rabbitControlPath = Find-RabbitMQCtl
-		}
-		
-		Catch
-		{
-			Break
-		}
+        }
+        
+        Catch
+        {
+            Break
+        }
 
         $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
 
         Write-Verbose "Adding command parameter."
-		$rabbitControlParams = $rabbitControlParams + "wait $PidFile"
+        $rabbitControlParams = $rabbitControlParams + "wait $PidFile"
 
         Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
-		Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
     }
 
     End
@@ -373,8 +334,6 @@ Function Wait-RabbitMQ {
 
 
 # Export Declarations --------------------------------------------------------------------------------------------------
-Export-ModuleMember -Function Disable-RabbitMQ-Management
-Export-ModuleMember -Function Enable-RabbitMQ-Management
 Export-ModuleMember -Function Reset-RabbitMQ
 Export-ModuleMember -Function Start-RabbitMQ
 Export-ModuleMember -Function Stop-RabbitMQ
