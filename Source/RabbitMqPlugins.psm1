@@ -20,7 +20,7 @@ Function Find-RabbitMQ-Plugins {
 
 
 # Exported Module Functions --------------------------------------------------------------------------------------------
-Function Disable-RabbitMQ-Management {
+Function Disable-RabbitMQManagement {
 <#
 .SYNOPSIS
     Disables the RabbitMQ Management Plugin.
@@ -35,6 +35,9 @@ Function Disable-RabbitMQ-Management {
 .FUNCTIONALITY
     RabbitMQ
 #>
+    [cmdletbinding()]
+    param ()
+
 	Begin
 	{
         Write-Verbose "Begin: Disable-RabbitMQ-Management"
@@ -53,7 +56,7 @@ Function Disable-RabbitMQ-Management {
 		}
 
         Write-Verbose "Adding command parameter."
-		$rabbitPluginsParams = "enable rabbitmq_management"
+		[string[]] $rabbitPluginsParams = "disable rabbitmq_management"
 
         Write-Verbose "Executing command: $rabbitPluginsPath $rabbitPluginsParams"
 		Start-Process -ArgumentList $rabbitPluginsParams -FilePath "$rabbitPluginsPath" -NoNewWindow -Wait
@@ -65,10 +68,58 @@ Function Disable-RabbitMQ-Management {
     }
 }
 
+Function Enable-RabbitMQManagement {
+<#
+.SYNOPSIS
+    Enables the RabbitMQ Management Plugin.
+
+.DESCRIPTION
+    Enables the RabbitMQ Management Plugin.
+
+.EXAMPLE
+    # Enable the RabbitMQ Management Plugin.
+	    Enable-RabbitMQ-Management
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param ()
+
+	Begin
+	{
+        Write-Verbose "Begin: Enable-RabbitMQ-Management"
+	}
+	
+	Process
+	{
+		Try
+		{
+            $rabbitPluginsPath = Find-RabbitMQ-Plugins
+		}
+		
+		Catch
+		{yy
+			Break
+		}
+
+        Write-Verbose "Adding command parameter."
+		[string[]] $rabbitPluginsParams = "enable rabbitmq_management"
+
+        Write-Verbose "Executing command: $rabbitPluginsPath $rabbitPluginsParams"
+		Start-Process -ArgumentList $rabbitPluginsParams -FilePath "$rabbitPluginsPath" -NoNewWindow -Wait
+	}
+
+    End
+    {
+        Write-Verbose "End: Enable-RabbitMQ-Management"
+    }
+}
 
 
 
 
 
 # Export Declarations --------------------------------------------------------------------------------------------------
-Export-ModuleMember -Function Disable-RabbitMQ-Management
+Export-ModuleMember -Function Disable-RabbitMQManagement
+Export-ModuleMember -Function Enable-RabbitMQManagement
