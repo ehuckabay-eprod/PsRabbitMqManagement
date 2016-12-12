@@ -1,3 +1,8 @@
+# To-Do
+# 1. Update all documentation.
+# 2. Carefully read all source code and correct any copy/paste errors.
+# 3. Ensure that enough Write-Verbose calls are being made where needed for troubleshooting.
+
 # Private Functions ----------------------------------------------------------------------------------------------------
 Function Build-RabbitMq-Params {
     param (
@@ -63,6 +68,8 @@ Function Get-StdOut {
         [string[]] $arguments
     )
 
+    $commandString = "$rabbitControlPath $rabbitControlParams"
+    Write-Verbose "Executing command: $commandString"
     $processInfo = New-Object System.Diagnostics.ProcessStartInfo
     $processInfo.FileName = $filename
     $processInfo.RedirectStandardError = $true
@@ -81,10 +88,12 @@ Function Get-StdOut {
 
     if ($process.ExitCode -ne 0)
     {
+        Write-Error "Error:  Error executing command:  $commandString"
         $stderr = $process.StandardError.ReadToEnd()
         throw $stderr
     }
 
+    Write-Verbose "Getting output from command $commandString"
     $stdout = $process.StandardOutput.ReadToEnd()
     return $stdout
 }
@@ -363,10 +372,6 @@ Function Get-RabbitMqUsers {
         [Parameter(Mandatory=$false)]
         [String] $Node=$null,
 
-        # rabbitmqctl parameter [-q (quiet)]
-        [Parameter(Mandatory=$false)]
-        [switch] $Quiet,
-
         # rabbitmqctl parameter [-t timeout]
         [Parameter(Mandatory=$false)]
         [int] $Timeout
@@ -389,14 +394,20 @@ Function Get-RabbitMqUsers {
             Break
         }
 
-        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet -Timeout $Timeout
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $true -Timeout $Timeout
 
         Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "list_users"
         
-        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
         $stdOut = Get-StdOut -filename $rabbitControlPath -arguments $rabbitControlParams
         Write-Host $stdOut
+
+        $userInfo = $stdOut | ConvertFrom-String -TemplateFile .\usersAndTags.template.txt
+        Write-Host $userInfo
+        $userInfo | ForEach-Object {
+            $username = $_.Username
+            Write-Verbose $username
+        }
     }
 
     End
