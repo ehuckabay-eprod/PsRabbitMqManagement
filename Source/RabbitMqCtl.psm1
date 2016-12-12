@@ -75,6 +75,9 @@ Function Reset-RabbitMQ {
 .PARAMETER Quiet
     Informational messages are suppressed when quiet mode is in effect.
 
+.PARAMETER Force
+    If present, we will use force_reset instead of reset.  The force_reset command differs from reset in that it resets the node unconditionally, regardless of the current management database state and cluster configuration. It should only be used as a last resort if the database or cluster configuration has been corrupted.
+
 .EXAMPLE
     #Reset the RabbitMQ application at Node rabbit@HOSTNAME to its virgin state and suppress informational messages.
         Reset-RabbitMQ -Node "rabbit@HOSTNAME" -Quiet
@@ -90,7 +93,10 @@ Function Reset-RabbitMQ {
 
         # rabbitmqctl parameter [-q (quiet)]
         [Parameter(Mandatory=$false)]
-        [switch] $Quiet
+        [switch] $Quiet,
+
+        [Parameter(Mandatory=$false)]
+        [switch] $Force
     )
     
     Begin
@@ -110,10 +116,19 @@ Function Reset-RabbitMQ {
             Break
         }
 
-        $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
+        [string[]] $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
 
         Write-Verbose "Adding command parameter."
-        $rabbitControlParams = $rabbitControlParams + "reset"
+        if ($Force)
+        {
+            $rabbitControlParams = $rabbitControlParams + "force_reset"
+        }
+
+        else
+        {
+            $rabbitControlParams = $rabbitControlParams + "reset"
+        }
+
 
         Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
         Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
@@ -161,7 +176,6 @@ Function Start-RabbitMQ {
     Begin
     {
         Write-Verbose "Begin: Start-RabbitMQ"
-        [string[]] $rabbitControlParams = @()
     }
     
     Process
@@ -176,7 +190,7 @@ Function Start-RabbitMQ {
             Break
         }
 
-        $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
+        [string[]] $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
 
         Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "start_app"
@@ -241,7 +255,7 @@ Function Stop-RabbitMQ {
             Break
         }
 
-        $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
+        [string[]] $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
 
         Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "stop_app"
@@ -314,7 +328,7 @@ Function Wait-RabbitMQ {
             Break
         }
 
-        $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
+        [string[]] $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
 
         Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "wait $PidFile"
