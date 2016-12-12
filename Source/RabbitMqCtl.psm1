@@ -1,3 +1,8 @@
+# To-Do
+# 1. Update all documentation.
+# 2. Carefully read all source code and correct any copy/paste errors.
+# 3. Ensure that enough Write-Verbose calls are being made where needed for troubleshooting.
+
 # Private Functions ----------------------------------------------------------------------------------------------------
 Function Build-RabbitMq-Params {
     param (
@@ -52,6 +57,45 @@ Function Find-RabbitMqCtl {
         Write-Error "Error:  Could not find rabbitmqctl.bat in user or system path.  Make sure rabbitmqctl is installed and its installation directory is in your system or user path."
         throw "Could not find rabbitmqctl.bat in user or system path.  Make sure rabbitmqctl is installed and its installation directory is in your system or user path."
     }
+}
+
+Function Get-StdOut {
+    param (
+        [Parameter(Mandatory=$true)]
+        [String] $filename,
+
+        [Parameter(Mandatory=$false)]
+        [string[]] $arguments
+    )
+
+    $commandString = "$rabbitControlPath $rabbitControlParams"
+    Write-Verbose "Executing command: $commandString"
+    $processInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $processInfo.FileName = $filename
+    $processInfo.RedirectStandardError = $true
+    $processInfo.RedirectStandardOutput = $true
+    $processInfo.UseShellExecute = $false
+
+    if ($arguments)
+    {
+        $processInfo.Arguments = $arguments
+    }
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $processInfo
+    $process.Start() | Out-Null
+    $process.WaitForExit()
+
+    if ($process.ExitCode -ne 0)
+    {
+        Write-Error "Error:  Error executing command:  $commandString"
+        $stderr = $process.StandardError.ReadToEnd()
+        throw $stderr
+    }
+
+    Write-Verbose "Getting output from command $commandString"
+    $stdout = $process.StandardOutput.ReadToEnd()
+    return $stdout
 }
 
 
@@ -292,6 +336,83 @@ Function Confirm-RabbitMqCredentials {
     End
     {
         Write-Verbose "End: Reset-RabbitMq"
+    }
+}
+
+Function Get-RabbitMqUsers {
+<#
+.SYNOPSIS
+    This command instructs the RabbitMQ broker to list all users.
+
+.DESCRIPTION
+	Lists users. Each result row will contain the user name followed by a list of the tags set for that user.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Timeout
+    Operation timeout in seconds.
+
+.PARAMETER Password
+    The password of the user.
+
+.EXAMPLE
+    #This command instructs the RabbitMQ broker at node rabbit@M6800 to list all users and their tags, suppress informational messages, and timeouot after 10 seconds.
+        Get-RabbitMqUsers -Node "rabbit@HOSTNAME" -Quiet -Timeout 10
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-t timeout]
+        [Parameter(Mandatory=$false)]
+        [int] $Timeout
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqUsers"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $true -Timeout $Timeout
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "list_users"
+        
+        $stdOut = Get-StdOut -filename $rabbitControlPath -arguments $rabbitControlParams
+        Write-Host $stdOut
+
+        # $userInfo = $stdOut | ConvertFrom-String -TemplateFile .\usersAndTags.template.txt
+        # Write-Host $userInfo
+        # $userInfo | ForEach-Object {
+        #     $username = $_.Username
+        #     Write-Verbose $username
+        # }
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqUsers"
     }
 }
 
@@ -825,8 +946,9 @@ Function Wait-RabbitMq {
 
 # Export Declarations --------------------------------------------------------------------------------------------------
 Export-ModuleMember -Function Add-RabbitMqUser
-Export-ModuleMember -Function Confirm-RabbitMqCredentials
 Export-ModuleMember -Function Clear-RabbitMqPassword
+Export-ModuleMember -Function Confirm-RabbitMqCredentials
+Export-ModuleMember -Function Get-RabbitMqUsers
 Export-ModuleMember -Function Remove-RabbitMqUser
 Export-ModuleMember -Function Reset-RabbitMPassword
 Export-ModuleMember -Function Reset-RabbitMq

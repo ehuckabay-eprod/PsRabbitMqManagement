@@ -1,0 +1,2 @@
+﻿{UserInfo*:{Username:Username1}    {Tags*:[Tag1]}}
+{UserInfo*:{Username:Username2}    {Tags*:[Tag2, Tag3, Tag4]}}
