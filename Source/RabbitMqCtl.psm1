@@ -640,7 +640,7 @@ Function Set-RabbitMqUserTags {
         [string] $Username,
 
         [Parameter(Mandatory=$true)]
-        [string] $Tag
+        [string[]] $Tag
     )
     
     Begin
