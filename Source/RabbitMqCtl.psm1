@@ -140,6 +140,79 @@ Function Add-RabbitMQUser {
     }
 }
 
+Function Clear-RabbitMQPassword {
+<#
+.SYNOPSIS
+    Removes the password for the specified user.
+
+.DESCRIPTION
+	This command instructs the RabbitMQ broker to clear the password for the given user. This user now cannot log in with a password (but may be able to through e.g. SASL EXTERNAL if configured).
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Username
+    The name of the user to create.
+
+.EXAMPLE
+    #This command instructs the RabbitMQ broker to clear the password for the user named tonyg at Node rabbit@HOSTNAME and suppresses informational messages.
+        Reset-RabbitMQPassword -Node "rabbit@HOSTNAME" -Username tonyg -Quiet
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        [Parameter(Mandatory=$true)]
+        [string] $Username
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Clear-RabbitMPassword"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMQCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "clear_password"
+
+        Write-Verbose "Adding username parameter."
+        $rabbitControlParams = $rabbitControlParams + $Username
+        
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Reset-RabbitMQ"
+    }
+}
+
 Function Remove-RabbitMQUser {
 <#
 .SYNOPSIS
@@ -584,6 +657,7 @@ Function Wait-RabbitMQ {
 
 # Export Declarations --------------------------------------------------------------------------------------------------
 Export-ModuleMember -Function Add-RabbitMQUser
+Export-ModuleMember -Function Clear-RabbitMQPassword
 Export-ModuleMember -Function Remove-RabbitMQUser
 Export-ModuleMember -Function Reset-RabbitMPassword
 Export-ModuleMember -Function Reset-RabbitMQ
