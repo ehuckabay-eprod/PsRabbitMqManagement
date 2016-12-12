@@ -402,12 +402,12 @@ Function Get-RabbitMqUsers {
         $stdOut = Get-StdOut -filename $rabbitControlPath -arguments $rabbitControlParams
         Write-Host $stdOut
 
-        $userInfo = $stdOut | ConvertFrom-String -TemplateFile .\usersAndTags.template.txt
-        Write-Host $userInfo
-        $userInfo | ForEach-Object {
-            $username = $_.Username
-            Write-Verbose $username
-        }
+        # $userInfo = $stdOut | ConvertFrom-String -TemplateFile .\usersAndTags.template.txt
+        # Write-Host $userInfo
+        # $userInfo | ForEach-Object {
+        #     $username = $_.Username
+        #     Write-Verbose $username
+        # }
     }
 
     End
