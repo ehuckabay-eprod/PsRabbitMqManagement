@@ -1,5 +1,5 @@
 # Private Functions ----------------------------------------------------------------------------------------------------
-Function Build-RabbitMQ-Params {
+Function Build-RabbitMq-Params {
     param (
         # rabbitmqctl parameter [-n node]
         [Parameter(Mandatory=$false)]
@@ -38,7 +38,7 @@ Function Build-RabbitMQ-Params {
     return $rabbitControlParams
 }
 
-Function Find-RabbitMQCtl {
+Function Find-RabbitMqCtl {
     Write-Verbose "Checking for rabbitmqctl on the system path."
     $rabbitCommand = Get-Command "rabbitmqctl.bat"
     if ($?)
@@ -59,7 +59,7 @@ Function Find-RabbitMQCtl {
 
 
 # Exported Module Functions --------------------------------------------------------------------------------------------
-Function Add-RabbitMQUser {
+Function Add-RabbitMqUser {
 <#
 .SYNOPSIS
     Adds a new user to the RabbitMQ node.
@@ -80,7 +80,7 @@ Function Add-RabbitMQUser {
 
 .EXAMPLE
     #This command instructs the RabbitMQ broker to create a (non-administrative) user named tonyg with (initial) password changeit at Node rabbit@HOSTNAME and suppresses informational messages.
-        Add-RabbitMQUser -Node "rabbit@HOSTNAME" -Username tonyg -Password chageit -Quiet
+        Add-RabbitMqUser -Node "rabbit@HOSTNAME" -Username tonyg -Password chageit -Quiet
 
 .FUNCTIONALITY
     RabbitMQ
@@ -104,14 +104,14 @@ Function Add-RabbitMQUser {
     
     Begin
     {
-        Write-Verbose "Begin: Add-RabbitMQUser"
+        Write-Verbose "Begin: Add-RabbitMqUser"
     }
     
     Process
     {
         Try
         {
-            $rabbitControlPath = Find-RabbitMQCtl
+            $rabbitControlPath = Find-RabbitMqCtl
         }
         
         Catch
@@ -119,7 +119,7 @@ Function Add-RabbitMQUser {
             Break
         }
 
-        [string[]] $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
 
         Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "add_user"
@@ -136,11 +136,11 @@ Function Add-RabbitMQUser {
 
     End
     {
-        Write-Verbose "End: Reset-RabbitMQ"
+        Write-Verbose "End: Reset-RabbitMq"
     }
 }
 
-Function Clear-RabbitMQPassword {
+Function Clear-RabbitMqPassword {
 <#
 .SYNOPSIS
     Removes the password for the specified user.
@@ -159,7 +159,7 @@ Function Clear-RabbitMQPassword {
 
 .EXAMPLE
     #This command instructs the RabbitMQ broker to clear the password for the user named tonyg at Node rabbit@HOSTNAME and suppresses informational messages.
-        Reset-RabbitMQPassword -Node "rabbit@HOSTNAME" -Username tonyg -Quiet
+        Clear-RabbitMqPassword -Node "rabbit@HOSTNAME" -Username tonyg -Quiet
 
 .FUNCTIONALITY
     RabbitMQ
@@ -187,7 +187,7 @@ Function Clear-RabbitMQPassword {
     {
         Try
         {
-            $rabbitControlPath = Find-RabbitMQCtl
+            $rabbitControlPath = Find-RabbitMqCtl
         }
         
         Catch
@@ -195,7 +195,7 @@ Function Clear-RabbitMQPassword {
             Break
         }
 
-        [string[]] $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
 
         Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "clear_password"
@@ -209,11 +209,11 @@ Function Clear-RabbitMQPassword {
 
     End
     {
-        Write-Verbose "End: Reset-RabbitMQ"
+        Write-Verbose "End: Reset-RabbitMq"
     }
 }
 
-Function Confirm-RabbitMQCredentials {
+Function Confirm-RabbitMqCredentials {
 <#
 .SYNOPSIS
     Authenticates the given username and password.
@@ -235,7 +235,7 @@ Function Confirm-RabbitMQCredentials {
 
 .EXAMPLE
     #This command instructs the RabbitMQ broker to authenticate a user named tonyg with password verifyit at Node rabbit@HOSTNAME and suppresses informational messages.
-        Confirm-RabbitMQCredentials -Node "rabbit@HOSTNAME" -Username tonyg -Password verifyit -Quiet
+        Confirm-RabbitMqCredentials -Node "rabbit@HOSTNAME" -Username tonyg -Password verifyit -Quiet
 
 .FUNCTIONALITY
     RabbitMQ
@@ -259,14 +259,14 @@ Function Confirm-RabbitMQCredentials {
     
     Begin
     {
-        Write-Verbose "Begin: Confirm-RabbitMQCredentials"
+        Write-Verbose "Begin: Confirm-RabbitMqCredentials"
     }
     
     Process
     {
         Try
         {
-            $rabbitControlPath = Find-RabbitMQCtl
+            $rabbitControlPath = Find-RabbitMqCtl
         }
         
         Catch
@@ -274,7 +274,7 @@ Function Confirm-RabbitMQCredentials {
             Break
         }
 
-        [string[]] $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
 
         Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "authenticate_user"
@@ -291,11 +291,11 @@ Function Confirm-RabbitMQCredentials {
 
     End
     {
-        Write-Verbose "End: Reset-RabbitMQ"
+        Write-Verbose "End: Reset-RabbitMq"
     }
 }
 
-Function Remove-RabbitMQUser {
+Function Remove-RabbitMqUser {
 <#
 .SYNOPSIS
     Deletes a user from the RabbitMQ node.
@@ -313,7 +313,7 @@ Function Remove-RabbitMQUser {
 
 .EXAMPLE
     #This command instructs the RabbitMQ broker to delete a user named tonyg at Node rabbit@HOSTNAME and suppresses informational messages.
-        Delete-RabbitMQUser -Node "rabbit@HOSTNAME" -Username tonyg
+        Delete-RabbitMqUser -Node "rabbit@HOSTNAME" -Username tonyg
 
 .FUNCTIONALITY
     RabbitMQ
@@ -334,14 +334,14 @@ Function Remove-RabbitMQUser {
     
     Begin
     {
-        Write-Verbose "Begin: Delete-RabbitMQUser"
+        Write-Verbose "Begin: Delete-RabbitMqUser"
     }
     
     Process
     {
         Try
         {
-            $rabbitControlPath = Find-RabbitMQCtl
+            $rabbitControlPath = Find-RabbitMqCtl
         }
         
         Catch
@@ -349,7 +349,7 @@ Function Remove-RabbitMQUser {
             Break
         }
 
-        [string[]] $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
 
         Write-Verbose "Deleteing command parameter."
         $rabbitControlParams = $rabbitControlParams + "delete_user"
@@ -363,11 +363,11 @@ Function Remove-RabbitMQUser {
 
     End
     {
-        Write-Verbose "End: Reset-RabbitMQ"
+        Write-Verbose "End: Reset-RabbitMq"
     }
 }
 
-Function Reset-RabbitMQ {
+Function Reset-RabbitMq {
 <#
 .SYNOPSIS
     Return a RabbitMQ node to its virgin state.
@@ -388,7 +388,7 @@ Function Reset-RabbitMQ {
 
 .EXAMPLE
     #Reset the RabbitMQ application at Node rabbit@HOSTNAME to its virgin state and suppress informational messages.
-        Reset-RabbitMQ -Node "rabbit@HOSTNAME" -Quiet
+        Reset-RabbitMq -Node "rabbit@HOSTNAME" -Quiet
 
 .FUNCTIONALITY
     RabbitMQ
@@ -409,14 +409,14 @@ Function Reset-RabbitMQ {
     
     Begin
     {
-        Write-Verbose "Begin: Reset-RabbitMQ"
+        Write-Verbose "Begin: Reset-RabbitMq"
     }
     
     Process
     {
         Try
         {
-            $rabbitControlPath = Find-RabbitMQCtl
+            $rabbitControlPath = Find-RabbitMqCtl
         }
         
         Catch
@@ -424,7 +424,7 @@ Function Reset-RabbitMQ {
             Break
         }
 
-        [string[]] $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
 
         Write-Verbose "Adding command parameter."
         if ($Force)
@@ -444,7 +444,7 @@ Function Reset-RabbitMQ {
 
     End
     {
-        Write-Verbose "End: Reset-RabbitMQ"
+        Write-Verbose "End: Reset-RabbitMq"
     }
 }
 
@@ -470,7 +470,7 @@ Function Reset-RabbitMPassword {
 
 .EXAMPLE
     #This command instructs the RabbitMQ broker to update a user named tonyg with new password changedit at Node rabbit@HOSTNAME and suppresses informational messages.
-        Reset-RabbitMQPassword -Node "rabbit@HOSTNAME" -Username tonyg -NewPassword chagedit -Quiet
+        Reset-RabbitMqPassword -Node "rabbit@HOSTNAME" -Username tonyg -NewPassword chagedit -Quiet
 
 .FUNCTIONALITY
     RabbitMQ
@@ -501,7 +501,7 @@ Function Reset-RabbitMPassword {
     {
         Try
         {
-            $rabbitControlPath = Find-RabbitMQCtl
+            $rabbitControlPath = Find-RabbitMqCtl
         }
         
         Catch
@@ -509,7 +509,7 @@ Function Reset-RabbitMPassword {
             Break
         }
 
-        [string[]] $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
 
         Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "change_password"
@@ -526,11 +526,11 @@ Function Reset-RabbitMPassword {
 
     End
     {
-        Write-Verbose "End: Reset-RabbitMQ"
+        Write-Verbose "End: Reset-RabbitMq"
     }
 }
 
-Function Start-RabbitMQ {
+Function Start-RabbitMq {
 <#
 .SYNOPSIS
     Starts the RabbitMQ application.
@@ -547,7 +547,7 @@ Function Start-RabbitMQ {
 
 .EXAMPLE
     #Start the RabbitMQ application at Node rabbit@HOSTNAME and suppress informational messages.
-        Start-RabbitMQ -Node "rabbit@HOSTNAME" -Quiet
+        Start-RabbitMq -Node "rabbit@HOSTNAME" -Quiet
 
 .FUNCTIONALITY
     RabbitMQ
@@ -565,14 +565,14 @@ Function Start-RabbitMQ {
     
     Begin
     {
-        Write-Verbose "Begin: Start-RabbitMQ"
+        Write-Verbose "Begin: Start-RabbitMq"
     }
     
     Process
     {
         Try
         {
-            $rabbitControlPath = Find-RabbitMQCtl
+            $rabbitControlPath = Find-RabbitMqCtl
         }
         
         Catch
@@ -580,7 +580,7 @@ Function Start-RabbitMQ {
             Break
         }
 
-        [string[]] $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
 
         Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "start_app"
@@ -591,11 +591,97 @@ Function Start-RabbitMQ {
 
     End
     {
-        Write-Verbose "End: Start-RabbitMQ"
+        Write-Verbose "End: Start-RabbitMq"
     }
 }
 
-Function Stop-RabbitMQ {
+Function Set-RabbitMqUserTags {
+<#
+.SYNOPSIS
+    Sets user tags in RabbitMQ.
+
+.DESCRIPTION
+	Sets the given tag for the given user in the given RabbitMQ node.  If no tags are given, removes all tags from the given user.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Username
+    The name of the user whose tags are to be set.
+
+.PARAMETER Tag
+    Zero, one or more tags to set. Any existing tags will be removed.
+
+.EXAMPLE
+    #This command instructs the RabbitMQ broker to ensure the user named tonyg is an administrator on the node rabbit@M6800 and suppressed informational messages. This has no effect when the user logs in via AMQP, but can be used to permit the user to manage users, virtual hosts and permissions when the user logs in via some other means (for example with the management plugin).
+        Set-RabbitMqUserTags -Node "rabbit@HOSTNAME" -Username tonyg -Tag administrator -Quiet
+
+.EXAMPLE
+    #This command instructs the RabbitMQ broker to remove any tags from the user named tonyg.
+        Set-RabbitMqUserTags -Username tonyg
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        [Parameter(Mandatory=$true)]
+        [string] $Username,
+
+        [Parameter(Mandatory=$true)]
+        [string] $Tag
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Set-RabbitMqUserTags"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "set_user_tags"
+
+        Write-Verbose "Adding username parameter."
+        $rabbitControlParams = $rabbitControlParams + $Username
+
+        Write-Verbose "Adding password parameter."
+        $rabbitControlParams = $rabbitControlParams + $Tag
+        
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Set-RabbitMqUserTags"
+    }
+}
+
+Function Stop-RabbitMq {
 <#
 .SYNOPSIS
     Stops the RabbitMQ application.
@@ -612,7 +698,7 @@ Function Stop-RabbitMQ {
 
 .EXAMPLE
     #Stop the RabbitMQ application at Node rabbit@HOSTNAME and suppress informational messages.
-        Stop-RabbitMQ -Node "rabbit@HOSTNAME" -Quiet
+        Stop-RabbitMq -Node "rabbit@HOSTNAME" -Quiet
 
 .FUNCTIONALITY
     RabbitMQ
@@ -630,14 +716,14 @@ Function Stop-RabbitMQ {
     
     Begin
     {
-        Write-Verbose "Begin: Stop-RabbitMQ"
+        Write-Verbose "Begin: Stop-RabbitMq"
     }
     
     Process
     {
         Try
         {
-            $rabbitControlPath = Find-RabbitMQCtl
+            $rabbitControlPath = Find-RabbitMqCtl
         }
         
         Catch
@@ -645,7 +731,7 @@ Function Stop-RabbitMQ {
             Break
         }
 
-        [string[]] $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
 
         Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "stop_app"
@@ -656,11 +742,11 @@ Function Stop-RabbitMQ {
 
     End
     {
-        Write-Verbose "End: Start-RabbitMQ"
+        Write-Verbose "End: Start-RabbitMq"
     }
 }
 
-Function Wait-RabbitMQ {
+Function Wait-RabbitMq {
 <#
 .SYNOPSIS
     Waits for the RabbitmQ application to start.  NOT SUPPORTED IF RABBITMQ IS RUNNING ON WINDOWS.
@@ -680,7 +766,7 @@ Function Wait-RabbitMQ {
     Informational messages are suppressed when quiet mode is in effect.
 
 .EXAMPLE
-    Wait-RabbitMQ -PidFile "/var/run/rabbitmq/pid"
+    Wait-RabbitMq -PidFile "/var/run/rabbitmq/pid"
 
 .FUNCTIONALITY
     RabbitMQ
@@ -703,14 +789,14 @@ Function Wait-RabbitMQ {
 
     Begin
     {
-        Write-Verbose "Begin: Wait-RabbitMQ"
+        Write-Verbose "Begin: Wait-RabbitMq"
     }
     
     Process
     {
         Try
         {
-            $rabbitControlPath = Find-RabbitMQCtl
+            $rabbitControlPath = Find-RabbitMqCtl
         }
         
         Catch
@@ -718,7 +804,7 @@ Function Wait-RabbitMQ {
             Break
         }
 
-        [string[]] $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
 
         Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "wait $PidFile"
@@ -729,7 +815,7 @@ Function Wait-RabbitMQ {
 
     End
     {
-        Write-Verbose "End: Wait-RabbitMQ"
+        Write-Verbose "End: Wait-RabbitMq"
     }
 }
 
@@ -738,12 +824,13 @@ Function Wait-RabbitMQ {
 
 
 # Export Declarations --------------------------------------------------------------------------------------------------
-Export-ModuleMember -Function Add-RabbitMQUser
-Export-ModuleMember -Function Confirm-RabbitMQCredentials
-Export-ModuleMember -Function Clear-RabbitMQPassword
-Export-ModuleMember -Function Remove-RabbitMQUser
+Export-ModuleMember -Function Add-RabbitMqUser
+Export-ModuleMember -Function Confirm-RabbitMqCredentials
+Export-ModuleMember -Function Clear-RabbitMqPassword
+Export-ModuleMember -Function Remove-RabbitMqUser
 Export-ModuleMember -Function Reset-RabbitMPassword
-Export-ModuleMember -Function Reset-RabbitMQ
-Export-ModuleMember -Function Start-RabbitMQ
-Export-ModuleMember -Function Stop-RabbitMQ
-Export-ModuleMember -Function Wait-RabbitMQ
+Export-ModuleMember -Function Reset-RabbitMq
+Export-ModuleMember -Function Start-RabbitMq
+Export-ModuleMember -Function Set-RabbitMqUserTags
+Export-ModuleMember -Function Stop-RabbitMq
+Export-ModuleMember -Function Wait-RabbitMq
