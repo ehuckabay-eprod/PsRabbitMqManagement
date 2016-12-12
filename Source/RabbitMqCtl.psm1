@@ -79,7 +79,7 @@ Function Add-RabbitMQUser {
     The password the created user will use to log in to the broker.
 
 .EXAMPLE
-    #This command instructs the RabbitMQ broker to create a (non-administrative) user named tonyg with (initial) password changeit at Node and suppresses informational messages.
+    #This command instructs the RabbitMQ broker to create a (non-administrative) user named tonyg with (initial) password changeit at Node rabbit@HOSTNAME and suppresses informational messages.
         Add-RabbitMQUser -Node "rabbit@HOSTNAME" -Username tonyg -Password chageit -Quiet
 
 .FUNCTIONALITY
@@ -129,6 +129,78 @@ Function Add-RabbitMQUser {
 
         Write-Verbose "Adding password parameter."
         $rabbitControlParams = $rabbitControlParams + $Password
+        
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Reset-RabbitMQ"
+    }
+}
+
+Function Remove-RabbitMQUser {
+<#
+.SYNOPSIS
+    Deletes a user from the RabbitMQ node.
+
+.DESCRIPTION
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Username
+    The name of the user to delete.
+
+.EXAMPLE
+    #This command instructs the RabbitMQ broker to delete a user named tonyg at Node rabbit@HOSTNAME and suppresses informational messages.
+        Delete-RabbitMQUser -Node "rabbit@HOSTNAME" -Username tonyg
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        [Parameter(Mandatory=$true)]
+        [string] $Username
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Delete-RabbitMQUser"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMQCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMQ-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Deleteing command parameter."
+        $rabbitControlParams = $rabbitControlParams + "delete_user"
+
+        Write-Verbose "Deleteing username parameter."
+        $rabbitControlParams = $rabbitControlParams + $Username
         
         Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
         Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
@@ -430,6 +502,7 @@ Function Wait-RabbitMQ {
 
 # Export Declarations --------------------------------------------------------------------------------------------------
 Export-ModuleMember -Function Add-RabbitMQUser
+Export-ModuleMember -Function Remove-RabbitMQUser
 Export-ModuleMember -Function Reset-RabbitMQ
 Export-ModuleMember -Function Start-RabbitMQ
 Export-ModuleMember -Function Stop-RabbitMQ
