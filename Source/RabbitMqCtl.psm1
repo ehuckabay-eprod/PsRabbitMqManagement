@@ -109,6 +109,7 @@ Function Add-RabbitMqUser {
     Adds a new user to the RabbitMQ node.
 
 .DESCRIPTION
+    Adds a new user to the RabbitMQ node.
 
 .PARAMETER Node
     Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
@@ -180,7 +181,80 @@ Function Add-RabbitMqUser {
 
     End
     {
-        Write-Verbose "End: Reset-RabbitMq"
+        Write-Verbose "End: Add-RabbitMqUser"
+    }
+}
+
+Function Add-RabbitMqVHost {
+<#
+.SYNOPSIS
+    Creates a new virtual host on the RabbitMQ node.
+
+.DESCRIPTION
+    Creates a new virtual host on the RabbitMQ node.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER VHost
+    The name of the virtual host to create.
+
+.EXAMPLE
+    #This command instructs RabbitMQ to create a virtual host named new_host Node rabbit@HOSTNAME and suppresses informational messages.
+        Add-RabbitMqVHost -Node "rabbit@HOSTNAME" -VHost new_host -Password chageit -Quiet
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        [Parameter(Mandatory=$true)]
+        [string] $VHost
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Add-RabbitMqVHost"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "add_vhost"
+
+        Write-Verbose "Adding username parameter."
+        $rabbitControlParams = $rabbitControlParams + $VHost
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Add-RabbitMqVHost"
     }
 }
 
@@ -946,6 +1020,7 @@ Function Wait-RabbitMq {
 
 # Export Declarations --------------------------------------------------------------------------------------------------
 Export-ModuleMember -Function Add-RabbitMqUser
+Export-ModuleMember -Function Add-RabbitMqVHost
 Export-ModuleMember -Function Clear-RabbitMqPassword
 Export-ModuleMember -Function Confirm-RabbitMqCredentials
 Export-ModuleMember -Function Get-RabbitMqUsers
