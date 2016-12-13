@@ -430,9 +430,6 @@ Function Get-RabbitMqUsers {
 .PARAMETER Timeout
     Operation timeout in seconds.
 
-.PARAMETER Password
-    The password of the user.
-
 .EXAMPLE
     #This command instructs RabbitMQat node rabbit@M6800 to list all users and their tags, suppress informational messages, and timeouot after 10 seconds.
         Get-RabbitMqUsers -Node "rabbit@HOSTNAME" -Quiet -Timeout 10
@@ -487,6 +484,87 @@ Function Get-RabbitMqUsers {
     End
     {
         Write-Verbose "End: Get-RabbitMqUsers"
+    }
+}
+
+Function Get-RabbitMqVHosts {
+<#
+.SYNOPSIS
+    Lists virtual hosts.
+
+.DESCRIPTION
+	Lists virtual hosts.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Timeout
+    Operation timeout in seconds.
+
+.PARAMETER VHostInfoItems
+    The vhostinfoitem parameter is used to indicate which virtual host information items to include in the results. The column order in the results will match the order of the parameters. vhostinfoitem can take any value from the list that follows:
+        name:  The name of the virtual host with non-ASCII characters escaped as in C.
+        tracing:  Whether tracing is enabled for this virtual host.
+
+.EXAMPLE
+    #This command instructs RabbitMQat node rabbit@M6800 to list all virtual hosts and whether or not they have tracing enabled, suppress informational messages, and timeouot after 10 seconds.
+        Get-RabbitMqVHosts -Node "rabbit@HOSTNAME" -Timeout 10 -VHostInfoItems name,tracing
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-t timeout]
+        [Parameter(Mandatory=$false)]
+        [int] $Timeout,
+
+        [Parameter(Mandatory=$false)]
+        [string[]] $VHostInfoItems
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqVHosts"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $true -Timeout $Timeout
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "list_vhosts"
+
+        if ($VHostInfoItems)
+        {
+            Write-Verbose "Adding VHostInfoItems parameter."
+            $rabbitControlParams = $rabbitControlParams + $VHostInfoItems
+        }
+        
+        $stdOut = Get-StdOut -filename $rabbitControlPath -arguments $rabbitControlParams
+        Write-Host $stdOut
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqVHosts"
     }
 }
 
@@ -936,7 +1014,7 @@ Function Set-RabbitMqUserTags {
         Write-Verbose "Adding username parameter."
         $rabbitControlParams = $rabbitControlParams + $Username
 
-        Write-Verbose "Adding password parameter."
+        Write-Verbose "Adding tag parameter."
         $rabbitControlParams = $rabbitControlParams + $Tag
         
         Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
@@ -1097,6 +1175,7 @@ Export-ModuleMember -Function Add-RabbitMqVHost
 Export-ModuleMember -Function Clear-RabbitMqPassword
 Export-ModuleMember -Function Confirm-RabbitMqCredentials
 Export-ModuleMember -Function Get-RabbitMqUsers
+Export-ModuleMember -Function Get-RabbitMqVHosts
 Export-ModuleMember -Function Remove-RabbitMqUser
 Export-ModuleMember -Function Remove-RabbitMqVHost
 Export-ModuleMember -Function Reset-RabbitMPassword
