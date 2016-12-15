@@ -473,6 +473,7 @@ Function Get-RabbitMqUsers {
         $stdOut = Get-StdOut -filename $rabbitControlPath -arguments $rabbitControlParams
         Write-Host $stdOut
 
+        # pattern: word characters, space, non-digits (including space and comma)
         $pattern = '^(?<Username>[\w]+)\s+\[(?<Tags>[\D]*)\]$'
         Write-Verbose "Object creation pattern: $($pattern)"
 
@@ -577,8 +578,11 @@ Function Get-RabbitMqVHosts {
         Write-Host $stdOut
 
         # this block allows the object creator to match output in arbitrary order (i.e. "name,tracing" vs "tracing,name")
+        # host pattern: word characters and forward slashes
         $host_pattern = '(?<Hostname>[\w/]+)'
+        # trace pattern: non-digits
         $trace_pattern = '(?<Tracing>\D+)'
+        # join pattern: white space
         $join_pattern = '\s+'
         $params_pattern = ""
         $VHostInfoItems | ForEach {
