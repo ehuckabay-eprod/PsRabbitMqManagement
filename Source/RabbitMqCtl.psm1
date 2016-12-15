@@ -431,7 +431,7 @@ Function Get-RabbitMqUsers {
     Operation timeout in seconds.
 
 .EXAMPLE
-    #This command instructs RabbitMQat node rabbit@M6800 to list all users and their tags, suppress informational messages, and timeouot after 10 seconds.
+    #This command instructs RabbitMQat node rabbit@HOSTNAME to list all users and their tags, suppress informational messages, and timeouot after 10 seconds.
         Get-RabbitMqUsers -Node "rabbit@HOSTNAME" -Quiet -Timeout 10
 
 .FUNCTIONALITY
@@ -525,7 +525,7 @@ Function Get-RabbitMqVHosts {
         tracing:  Whether tracing is enabled for this virtual host.
 
 .EXAMPLE
-    #This command instructs RabbitMQat node rabbit@M6800 to list all virtual hosts and whether or not they have tracing enabled, suppress informational messages, and timeouot after 10 seconds.
+    #This command instructs RabbitMQat node rabbit@HOSTNAME to list all virtual hosts and whether or not they have tracing enabled, suppress informational messages, and timeouot after 10 seconds.
         Get-RabbitMqVHosts -Node "rabbit@HOSTNAME" -Timeout 10 -VHostInfoItems name,tracing
 
 .FUNCTIONALITY
@@ -1014,7 +1014,7 @@ Function Set-RabbitMqUserTags {
     Zero, one or more tags to set. Any existing tags will be removed.
 
 .EXAMPLE
-    #This command instructs RabbitMQto ensure the user named tonyg is an administrator on the node rabbit@M6800 and suppressed informational messages. This has no effect when the user logs in via AMQP, but can be used to permit the user to manage users, virtual hosts and permissions when the user logs in via some other means (for example with the management plugin).
+    #This command instructs RabbitMQto ensure the user named tonyg is an administrator on the node rabbit@HOSTNAME and suppressed informational messages. This has no effect when the user logs in via AMQP, but can be used to permit the user to manage users, virtual hosts and permissions when the user logs in via some other means (for example with the management plugin).
         Set-RabbitMqUserTags -Node "rabbit@HOSTNAME" -Username tonyg -Tag administrator -Quiet
 
 .EXAMPLE
