@@ -473,17 +473,32 @@ Function Get-RabbitMqUsers {
         $stdOut = Get-StdOut -filename $rabbitControlPath -arguments $rabbitControlParams
         Write-Host $stdOut
 
-        # $userInfo = $stdOut | ConvertFrom-String -TemplateFile .\usersAndTags.template.txt
-        # Write-Host $userInfo
-        # $userInfo | ForEach-Object {
-        #     $username = $_.Username
-        #     Write-Verbose $username
-        # }
+        $pattern = '^(?<Username>[\w]+)\s+\[(?<Tags>[\D]*)\]$'
+        Write-Verbose "Object creation pattern: $($pattern)"
+
+        $results = @()
+        $lines = $stdout -split "\n" | ForEach {
+            if($_ -match $pattern) {
+                $obj = [PSCustomObject]@{
+                    Username = $matches.Username
+                    Tags = @()
+                }
+                #Write-Verbose $matches.Username
+                $matches.Tags -split ", " | ForEach {
+                    $obj.Tags += $_
+                    #Write-Verbose $_
+                }
+                $results += $obj
+                Write-Verbose $obj
+            }
+        }
+        Write-Verbose "Results: $($results.length)"
     }
 
     End
     {
         Write-Verbose "End: Get-RabbitMqUsers"
+        return $results
     }
 }
 
@@ -560,11 +575,48 @@ Function Get-RabbitMqVHosts {
         
         $stdOut = Get-StdOut -filename $rabbitControlPath -arguments $rabbitControlParams
         Write-Host $stdOut
+
+        # this block allows the object creator to match output in arbitrary order (i.e. "name,tracing" vs "tracing,name")
+        $host_pattern = '(?<Hostname>[\w/]+)'
+        $trace_pattern = '(?<Tracing>\D+)'
+        $join_pattern = '\s+'
+        $params_pattern = ""
+        $VHostInfoItems | ForEach {
+            if($params_pattern -ne "") {
+                $params_pattern += $join_pattern
+            }
+            if($_ -eq "name") {
+                $params_pattern += $host_pattern
+            }
+            if($_ -eq "tracing") {
+                $params_pattern += $trace_pattern
+            }
+        }
+        if($params_pattern -eq "") {
+            $params_pattern = $host_pattern
+        }
+        $final_pattern = "^$($params_pattern)$"
+        Write-Verbose "Object creation pattern: $($final_pattern)"
+
+        $results = @()
+        $lines = $stdout -split "\n" | ForEach {
+            if($_ -match $final_pattern) {
+                $obj = [PSCustomObject]@{
+                    Hostname = $matches.Hostname
+                    Tracing = $matches.Tracing
+                }
+                #$Write-Verbose $matches.Hostname
+                $results += $obj
+                Write-Verbose $obj
+            }
+        }
+        Write-Verbose "Results: $($results.length)"
     }
 
     End
     {
         Write-Verbose "End: Get-RabbitMqVHosts"
+        return $results
     }
 }
 
