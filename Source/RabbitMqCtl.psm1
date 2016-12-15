@@ -2,6 +2,7 @@
 # 1. Update all documentation.
 # 2. Carefully read all source code and correct any copy/paste errors.
 # 3. Ensure that enough Write-Verbose calls are being made where needed for troubleshooting.
+# 4. Redirect error output to the user.  Example: "Get-RabbitMqVHosts -VHostInfoItems garbage" fails silently
 
 # Private Functions ----------------------------------------------------------------------------------------------------
 Function Build-RabbitMq-Params {
@@ -124,7 +125,7 @@ Function Add-RabbitMqUser {
     The password the created user will use to log in to the broker.
 
 .EXAMPLE
-    #This command instructs RabbitMQto create a (non-administrative) user named tonyg with (initial) password changeit at Node rabbit@HOSTNAME and suppresses informational messages.
+    #This command instructs RabbitMQ to create a (non-administrative) user named tonyg with (initial) password changeit at Node rabbit@HOSTNAME and suppresses informational messages.
         Add-RabbitMqUser -Node "rabbit@HOSTNAME" -Username tonyg -Password chageit -Quiet
 
 .FUNCTIONALITY
@@ -264,7 +265,7 @@ Function Clear-RabbitMqPassword {
     Removes the password for the specified user.
 
 .DESCRIPTION
-	This command instructs RabbitMQto clear the password for the given user. This user now cannot log in with a password (but may be able to through e.g. SASL EXTERNAL if configured).
+	This command instructs RabbitMQ to clear the password for the given user. This user now cannot log in with a password (but may be able to through e.g. SASL EXTERNAL if configured).
 
 .PARAMETER Node
     Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
@@ -276,7 +277,7 @@ Function Clear-RabbitMqPassword {
     The name of the user to create.
 
 .EXAMPLE
-    #This command instructs RabbitMQto clear the password for the user named tonyg at Node rabbit@HOSTNAME and suppresses informational messages.
+    #This command instructs RabbitMQ to clear the password for the user named tonyg at Node rabbit@HOSTNAME and suppresses informational messages.
         Clear-RabbitMqPassword -Node "rabbit@HOSTNAME" -Username tonyg -Quiet
 
 .FUNCTIONALITY
@@ -337,7 +338,7 @@ Function Confirm-RabbitMqCredentials {
     Authenticates the given username and password.
 
 .DESCRIPTION
-	This command instructs RabbitMQto authenticate the given user named with the given password.
+	This command instructs RabbitMQ to authenticate the given user named with the given password.
 
 .PARAMETER Node
     Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
@@ -352,7 +353,7 @@ Function Confirm-RabbitMqCredentials {
     The password of the user.
 
 .EXAMPLE
-    #This command instructs RabbitMQto authenticate a user named tonyg with password verifyit at Node rabbit@HOSTNAME and suppresses informational messages.
+    #This command instructs RabbitMQ to authenticate a user named tonyg with password verifyit at Node rabbit@HOSTNAME and suppresses informational messages.
         Confirm-RabbitMqCredentials -Node "rabbit@HOSTNAME" -Username tonyg -Password verifyit -Quiet
 
 .FUNCTIONALITY
@@ -416,7 +417,7 @@ Function Confirm-RabbitMqCredentials {
 Function Get-RabbitMqUsers {
 <#
 .SYNOPSIS
-    This command instructs RabbitMQto list all users.
+    This command instructs RabbitMQ to list all users.
 
 .DESCRIPTION
 	Lists users. Each result row will contain the user name followed by a list of the tags set for that user.
@@ -431,7 +432,7 @@ Function Get-RabbitMqUsers {
     Operation timeout in seconds.
 
 .EXAMPLE
-    #This command instructs RabbitMQat node rabbit@HOSTNAME to list all users and their tags, suppress informational messages, and timeouot after 10 seconds.
+    #This command instructs RabbitMQ at node rabbit@HOSTNAME to list all users and their tags, suppress informational messages, and timeouot after 10 seconds.
         Get-RabbitMqUsers -Node "rabbit@HOSTNAME" -Quiet -Timeout 10
 
 .FUNCTIONALITY
@@ -526,7 +527,7 @@ Function Get-RabbitMqVHosts {
         tracing:  Whether tracing is enabled for this virtual host.
 
 .EXAMPLE
-    #This command instructs RabbitMQat node rabbit@HOSTNAME to list all virtual hosts and whether or not they have tracing enabled, suppress informational messages, and timeouot after 10 seconds.
+    #This command instructs RabbitMQ at node rabbit@HOSTNAME to list all virtual hosts and whether or not they have tracing enabled, suppress informational messages, and timeouot after 10 seconds.
         Get-RabbitMqVHosts -Node "rabbit@HOSTNAME" -Timeout 10 -VHostInfoItems name,tracing
 
 .FUNCTIONALITY
@@ -641,8 +642,8 @@ Function Remove-RabbitMqUser {
     The name of the user to delete.
 
 .EXAMPLE
-    #This command instructs RabbitMQto delete a user named tonyg at Node rabbit@HOSTNAME and suppresses informational messages.
-        Delete-RabbitMqUser -Node "rabbit@HOSTNAME" -Username tonyg
+    #This command instructs RabbitMQ to delete a user named tonyg at Node rabbit@HOSTNAME and suppresses informational messages.
+        Remove-RabbitMqUser -Node "rabbit@HOSTNAME" -Username tonyg
 
 .FUNCTIONALITY
     RabbitMQ
@@ -663,7 +664,7 @@ Function Remove-RabbitMqUser {
     
     Begin
     {
-        Write-Verbose "Begin: Delete-RabbitMqUser"
+        Write-Verbose "Begin: Remove-RabbitMqUser"
     }
     
     Process
@@ -680,10 +681,10 @@ Function Remove-RabbitMqUser {
 
         [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
 
-        Write-Verbose "Deleteing command parameter."
+        Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "delete_user"
 
-        Write-Verbose "Deleteing username parameter."
+        Write-Verbose "Adding username parameter."
         $rabbitControlParams = $rabbitControlParams + $Username
         
         Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
@@ -692,7 +693,7 @@ Function Remove-RabbitMqUser {
 
     End
     {
-        Write-Verbose "End: Reset-RabbitMq"
+        Write-Verbose "End: Remove-RabbitMqUser"
     }
 }
 
@@ -714,8 +715,8 @@ Function Remove-RabbitMqVHost {
     The name of the virtual host to delete.
 
 .EXAMPLE
-    #This command instructs RabbitMQto delete a virtual host named new_host at Node rabbit@HOSTNAME and suppresses informational messages.
-        Delete-RabbitMqVHostr -Node "rabbit@HOSTNAME" -VHost new_host
+    #This command instructs RabbitMQ to delete a virtual host named new_host at Node rabbit@HOSTNAME and suppresses informational messages.
+        Remove-RabbitMqVHost -Node "rabbit@HOSTNAME" -VHost new_host
 
 .FUNCTIONALITY
     RabbitMQ
@@ -753,10 +754,10 @@ Function Remove-RabbitMqVHost {
 
         [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
 
-        Write-Verbose "Deleteing command parameter."
+        Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "delete_vhost"
 
-        Write-Verbose "Deleteing username parameter."
+        Write-Verbose "Adding username parameter."
         $rabbitControlParams = $rabbitControlParams + $VHost
         
         Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
@@ -850,13 +851,13 @@ Function Reset-RabbitMq {
     }
 }
 
-Function Reset-RabbitMPassword {
+Function Reset-RabbitMqPassword {
 <#
 .SYNOPSIS
     Changes the password for the specified user.
 
 .DESCRIPTION
-	This command instructs RabbitMQto change the password for the user named tonyg to newpass.
+	This command instructs RabbitMQ to change the password for the user named tonyg to newpass.
 
 .PARAMETER Node
     Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
@@ -871,8 +872,8 @@ Function Reset-RabbitMPassword {
     The new password the created user will use to log in to the broker.
 
 .EXAMPLE
-    #This command instructs RabbitMQto update a user named tonyg with new password changedit at Node rabbit@HOSTNAME and suppresses informational messages.
-        Reset-RabbitMqPassword -Node "rabbit@HOSTNAME" -Username tonyg -NewPassword chagedit -Quiet
+    #This command instructs RabbitMQ to update a user named tonyg with new password changedit at Node rabbit@HOSTNAME and suppresses informational messages.
+        Reset-RabbitMqPassword -Node "rabbit@HOSTNAME" -Username tonyg -NewPassword changedit -Quiet
 
 .FUNCTIONALITY
     RabbitMQ
@@ -896,7 +897,7 @@ Function Reset-RabbitMPassword {
     
     Begin
     {
-        Write-Verbose "Begin: Reset-RabbitMPassword"
+        Write-Verbose "Begin: Reset-RabbitMqPassword"
     }
     
     Process
@@ -928,7 +929,7 @@ Function Reset-RabbitMPassword {
 
     End
     {
-        Write-Verbose "End: Reset-RabbitMq"
+        Write-Verbose "End: Reset-RabbitMqPassword"
     }
 }
 
@@ -1018,11 +1019,11 @@ Function Set-RabbitMqUserTags {
     Zero, one or more tags to set. Any existing tags will be removed.
 
 .EXAMPLE
-    #This command instructs RabbitMQto ensure the user named tonyg is an administrator on the node rabbit@HOSTNAME and suppressed informational messages. This has no effect when the user logs in via AMQP, but can be used to permit the user to manage users, virtual hosts and permissions when the user logs in via some other means (for example with the management plugin).
+    #This command instructs RabbitMQ to ensure the user named tonyg is an administrator on the node rabbit@HOSTNAME and suppressed informational messages. This has no effect when the user logs in via AMQP, but can be used to permit the user to manage users, virtual hosts and permissions when the user logs in via some other means (for example with the management plugin).
         Set-RabbitMqUserTags -Node "rabbit@HOSTNAME" -Username tonyg -Tag administrator -Quiet
 
 .EXAMPLE
-    #This command instructs RabbitMQto remove any tags from the user named tonyg.
+    #This command instructs RabbitMQ to remove any tags from the user named tonyg.
         Set-RabbitMqUserTags -Username tonyg
 
 .FUNCTIONALITY
