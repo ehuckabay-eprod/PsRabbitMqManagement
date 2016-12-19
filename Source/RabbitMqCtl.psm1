@@ -1389,8 +1389,9 @@ Function Get-RabbitMqBindings {
     Lists the RabbitMq bindings (routing info) for a vhost.
 
 .DESCRIPTION
-    Returns binding details and metadata. By default the bindings for the / virtual host are returned. The "-p" flag can be used to override this default. 
+    Returns binding details and metadata. By default the bindings for the / virtual host are returned. The "-VHost" flag can be used to override this default. 
         -Available metadata includes: source_name (message source), source_kind ("exchange"), destination_name (message destination), destination_kind (destination type), routing_key (topic), arguments (key-value to match for routing)
+        -By default, all metadata items are displayed.
         
 .PARAMETER Node
     Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
@@ -1470,7 +1471,181 @@ Function Get-RabbitMqBindings {
     }
 }
 
+Function Get-RabbitMqChannels {
+<#
+.SYNOPSIS
+    Lists the RabbitMq channels (logical containers for AMQP commands) for a vhost.
 
+.DESCRIPTION
+    Returns channel details and metadata. By default the channels for the / virtual host are returned. The "-VHost" flag can be used to override this default.
+        -Available metadata includes: pid (Erlang process id), connection (Erlang process id), name (readable name), number (unique identifier within connection), user (username), vhost (virtual host), transactional (transact mode Y/N), confirm (confirmation mode Y/N), consumer_count (quantity of logical listeners), messages_unacknowledged (quantity delivered but not ack-ed), messages_uncommitted (quantity of messages in a pending transaction), acks_uncommitted (acks in a pending transaction), messages_unconfirmed (quantity sent but not confirmed, if in confirm mode), prefetch_count (QoS prefetch quantity allowed for new consumers), global_prefetch_count (QoS prefetch quantity allowed for channel)
+        -Default metadata is pid, user, consumer_count, and messages_unacknowledged.
+        
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER VHost
+    Default host is "/", the root vhost.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Timeout
+    Operation timeout in seconds.
+
+.EXAMPLE
+    #This command displays the name and username associated with the channel, and whether confirm mode is enabled for the virtual host named local_rabbitmq.
+    Get-RabbitMqChannels -VHost local_rabbitmq -InfoItems name,user,confirm
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [-t timeout]
+        [Parameter(Mandatory=$false)]
+        [int] $Timeout,
+
+        # rabbitmqctl parameter [bindinginfoitem]
+        [Parameter(Mandatory=$false)]
+        [ValidateSet("pid", "connection", "name", "number","user", "vhost", "transactional", "confirm", "consumer_count", "messages_unacknowledged", "messages_uncommitted","acks_uncommitted", "messages_unconfirmed", "prefetch_count", "global_prefetch_count")]
+        [String[]] $InfoItems
+    )
+
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqChannels"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet -Timeout $Timeout
+        if($VHost){
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
+        }
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "list_channels $InfoItems"
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqChannels"
+    }
+}
+
+Function Get-RabbitMqConnections {
+<#
+.SYNOPSIS
+    Lists the RabbitMq connections (TCP/IP info) for a vhost.
+
+.DESCRIPTION
+    Returns connection details and metadata. By default the connections for the "/" virtual host are returned. The "-VHost" flag can be used to override this default.
+        -Available metadata includes: pid (Erlang process id), name (readable name), port (server port), host (DNS name or IP), peer_port (port for peer-to-peer connections), peer_host (DNS name or IP), ssl (enabled Y/N), ssl_protocol (i.e. "TLSv1"), ssl_key_exchange (i.e. "RSA"), ssl_cipher (i.e. "aes_256_cbc"), ssl_hash (i.e. "SHA"), peer_cert_subject (RFC4514 name, i.e. "CN=Surname\, Lastname,OU=Users,DC=Foo,DC=net"), peer_cert_issuer (RFC4514 name), peer_cert_validity (date of expiration), state ([starting, tuning, opening, running, flow, blocking, blocked, closing, closed]), channels (quantity of channels), protocol (version in use), auth_mechanism (SASL auth, i.e. "PLAIN"), user (username), vhost, timeout (seconds), frame_max (bytes), channel_max (channel quantity limit), client_properties (sent from client), recv_oct (octets received), recv_cnt (packets received), send_oct (octets received), send_cnt (packets sent), send_pend (send queue size), connected_at (time connection established)
+        -Default metadata is user, peer host, peer port, time since flow control and memory block state.
+        
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER VHost
+    Default host is "/", the root vhost.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Timeout
+    Operation timeout in seconds.
+
+.EXAMPLE
+    #This command displays the name and username associated with the channel, and whether confirm mode is enabled for the virtual host named local_rabbitmq.
+    Get-RabbitMqChannels -VHost local_rabbitmq -InfoItems name,user,confirm
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [-t timeout]
+        [Parameter(Mandatory=$false)]
+        [int] $Timeout,
+
+        # rabbitmqctl parameter [bindinginfoitem]
+        [Parameter(Mandatory=$false)]
+        [ValidateSet("pid", "connection", "name", "number","user", "vhost", "transactional", "confirm", "consumer_count", "messages_unacknowledged", "messages_uncommitted","acks_uncommitted", "messages_unconfirmed", "prefetch_count", "global_prefetch_count")]
+        [String[]] $InfoItems
+    )
+
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqConnections"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet -Timeout $Timeout
+        if($VHost){
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
+        }
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "list_connections $InfoItems"
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqConnections"
+    }
+}
 
 # Export Declarations --------------------------------------------------------------------------------------------------
 Export-ModuleMember -Function Add-RabbitMqUser
@@ -1478,6 +1653,8 @@ Export-ModuleMember -Function Add-RabbitMqVHost
 Export-ModuleMember -Function Clear-RabbitMqPassword
 Export-ModuleMember -Function Confirm-RabbitMqCredentials
 Export-ModuleMember -Function Get-RabbitMqBindings
+Export-ModuleMember -Function Get-RabbitMqChannels
+Export-ModuleMember -Function Get-RabbitMqConnections
 Export-ModuleMember -Function Get-RabbitMqPermissions
 Export-ModuleMember -Function Get-RabbitMqStats
 Export-ModuleMember -Function Get-RabbitMqUsers
