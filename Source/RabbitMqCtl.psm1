@@ -1222,7 +1222,253 @@ Function Wait-RabbitMq {
     }
 }
 
+Function Get-RabbitMqStats {
+<#
+.SYNOPSIS
+    Lists the RabbitMq queues present on a host, as well as metadata about the current queue state.
 
+.DESCRIPTION
+    This command returns requested metadata for each queue on the specified RabbitMQ node.
+        -Available metadata includes: name (queue name), durable (does queue persist through restart), auto_delete (delete when unused), arguments, policy, pid, owner_pid, exclusive, exclusive_consumer_pid, exclusive_consumer_tag, messages_ready, messages_unacknowledged, messages, messages_ready_ram, messages_unacknowledged_ram, messages_ram, messages_persistent, message_bytes, message_bytes_ready, message_bytes_unacknowledged, message_bytes_ram, message_bytes_persistent, head_message_timestamp, disk_reads, disk_writes, consumers, consumer_utilisation, memory, slave_pids, synchronised_slave_pids, state
+        
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Timeout
+    Operation timeout in seconds.
+
+.EXAMPLE
+    Get-RabbitMqStats name,messages,head_message_timestamp
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [-t timeout]
+        [Parameter(Mandatory=$false)]
+        [int] $Timeout,
+
+        # rabbitmqctl parameter [--offline | --online | --local]
+        [Parameter(Mandatory=$false)]
+        [ValidateSet("offline", "online", "local")]
+        [string] $Locale,
+
+        # rabbitmqctl parameter [queueinfoitem]
+        [Parameter(Mandatory=$false)]
+        [ValidateSet("name", "durable", "auto_delete", "arguments", "policy", "pid", "owner_pid", "exclusive", "exclusive_consumer_pid", "exclusive_consumer_tag", "messages_ready", "messages_unacknowledged", "messages", "messages_ready_ram", "messages_unacknowledged_ram", "messages_ram", "messages_persistent", "message_bytes", "message_bytes_ready", "message_bytes_unacknowledged", "message_bytes_ram", "message_bytes_persistent", "head_message_timestamp", "disk_reads", "disk_writes", "consumers", "consumer_utilisation", "memory", "slave_pids", "synchronised_slave_pids", "state")]
+        [String[]] $InfoItems
+    )
+
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqStats"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet -Timeout $Timeout
+
+        Write-Verbose "Adding command parameter."
+        if($Locale) {
+            $LocaleFlag = "--$Locale"
+        }
+
+        $rabbitControlParams = $rabbitControlParams + "list_queues $LocaleFlag $InfoItems"
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqStats"
+    }
+}
+
+Function Get-RabbitMqPermissions {
+<#
+.SYNOPSIS
+    For a given user, lists the RabbitMq hosts and the granted permissions on each host.
+
+.DESCRIPTION
+    This command returns a list of permissions by virtual host for a given user.
+        
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Timeout
+    Operation timeout in seconds.
+
+.EXAMPLE
+    #This command instructs the RabbitMQ broker to list all the virtual hosts to which the user named tonyg has been granted access, and the permissions the user has for operations on resources in these virtual hosts. 
+    Get-RabbitMqPermissions admin
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [username]
+        [Parameter(Mandatory=$true,Position=1)]
+        [String] $Username,
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [-t timeout]
+        [Parameter(Mandatory=$false)]
+        [int] $Timeout
+    )
+
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqPermissions"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet -Timeout $Timeout
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "list_user_permissions $Username"
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqPermissions"
+    }
+}
+
+Function Get-RabbitMqBindings {
+<#
+.SYNOPSIS
+    Lists the RabbitMq bindings (routing info) for a vhost.
+
+.DESCRIPTION
+    Returns binding details and metadata. By default the bindings for the / virtual host are returned. The "-p" flag can be used to override this default. 
+        -Available metadata includes: source_name (message source), source_kind ("exchange"), destination_name (message destination), destination_kind (destination type), routing_key (topic), arguments (key-value to match for routing)
+        
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER VHost
+    Default host is "/", the root vhost.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Timeout
+    Operation timeout in seconds.
+
+.EXAMPLE
+    #This command displays the exchange name and queue name of the bindings in the virtual host named local_rabbitmq.
+    Get-RabbitMqBindings Get-RabbitMqBindings -VHost local_rabbitmq -InfoItems source_name,destination_name
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [-t timeout]
+        [Parameter(Mandatory=$false)]
+        [int] $Timeout,
+
+        # rabbitmqctl parameter [bindinginfoitem]
+        [Parameter(Mandatory=$false)]
+        [ValidateSet("source_name", "source_kind", "destination_name", "destination_kind", "routing_key", "arguments")]
+        [String[]] $InfoItems
+    )
+
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqBindings"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet -Timeout $Timeout
+        if($VHost){
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
+        }
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "list_bindings $InfoItems"
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqBindings"
+    }
+}
 
 
 
@@ -1231,6 +1477,9 @@ Export-ModuleMember -Function Add-RabbitMqUser
 Export-ModuleMember -Function Add-RabbitMqVHost
 Export-ModuleMember -Function Clear-RabbitMqPassword
 Export-ModuleMember -Function Confirm-RabbitMqCredentials
+Export-ModuleMember -Function Get-RabbitMqBindings
+Export-ModuleMember -Function Get-RabbitMqPermissions
+Export-ModuleMember -Function Get-RabbitMqStats
 Export-ModuleMember -Function Get-RabbitMqUsers
 Export-ModuleMember -Function Get-RabbitMqVHosts
 Export-ModuleMember -Function Remove-RabbitMqUser
