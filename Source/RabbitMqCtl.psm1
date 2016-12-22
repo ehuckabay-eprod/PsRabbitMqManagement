@@ -259,6 +259,95 @@ Function Add-RabbitMqVHost {
     }
 }
 
+Function Clear-RabbitMqParameter {
+<#
+.SYNOPSIS
+    Removes the value of a specific cluster-wide parameter for the specified vhost.
+
+.DESCRIPTION
+    This command instructs RabbitMQ to clear the value of a parameter on the cluster / vhost. In general, you should refer to the documentation for the feature in question (i.e. federation) to see how to set and clear parameters.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER VHost
+    Default host is "/", the root virtual host.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Component
+    The name of the component the parameter applies to.
+
+.PARAMETER ParamName
+    The name of the parameter whose value should be cleared.
+
+.EXAMPLE
+    #This command instructs RabbitMQ to clear the service account name used for federation at VHost local_rabbitmq, sending the command via Node rabbit@HOSTNAME.
+        Clear-RabbitMqParameter -Node "rabbit@HOSTNAME" -VHost local_rabbitmq -ParamName local_username -Component federation
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        [Parameter(Mandatory=$true)]
+        [string] $Component,
+
+        [Parameter(Mandatory=$true)]
+        [string] $ParamName
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Clear-RabbitMqParameter"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "clear_parameter"
+
+        Write-Verbose "Adding component parameter."
+        $rabbitControlParams = $rabbitControlParams + $Component
+        
+        Write-Verbose "Adding parameter name parameter."
+        $rabbitControlParams = $rabbitControlParams + $ParamName
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Clear-RabbitMqParameter"
+    }
+}
+
 Function Clear-RabbitMqPassword {
 <#
 .SYNOPSIS
@@ -328,7 +417,7 @@ Function Clear-RabbitMqPassword {
 
     End
     {
-        Write-Verbose "End: Reset-RabbitMq"
+        Write-Verbose "End: Clear-RabbitMqPassword"
     }
 }
 
@@ -1308,7 +1397,7 @@ Function Get-RabbitMqStats {
     }
 }
 
-Function Get-RabbitMqPermissions {
+Function Get-RabbitMqPermissionsByUser {
 <#
 .SYNOPSIS
     For a given user, lists the RabbitMq hosts and the granted permissions on each host.
@@ -1327,7 +1416,7 @@ Function Get-RabbitMqPermissions {
 
 .EXAMPLE
     #This command instructs the RabbitMQ broker to list all the virtual hosts to which the user named tonyg has been granted access, and the permissions the user has for operations on resources in these virtual hosts. 
-    Get-RabbitMqPermissions admin
+    Get-RabbitMqPermissionsByUser admin
 
 .FUNCTIONALITY
     RabbitMQ
@@ -1353,7 +1442,7 @@ Function Get-RabbitMqPermissions {
 
     Begin
     {
-        Write-Verbose "Begin: Get-RabbitMqPermissions"
+        Write-Verbose "Begin: Get-RabbitMqPermissionsByUser"
     }
     
     Process
@@ -1379,7 +1468,7 @@ Function Get-RabbitMqPermissions {
 
     End
     {
-        Write-Verbose "End: Get-RabbitMqPermissions"
+        Write-Verbose "End: Get-RabbitMqPermissionsByUser"
     }
 }
 
@@ -1407,7 +1496,7 @@ Function Get-RabbitMqBindings {
 
 .EXAMPLE
     #This command displays the exchange name and queue name of the bindings in the virtual host named local_rabbitmq.
-    Get-RabbitMqBindings Get-RabbitMqBindings -VHost local_rabbitmq -InfoItems source_name,destination_name
+    Get-RabbitMqBindings -VHost local_rabbitmq -InfoItems source_name,destination_name
 
 .FUNCTIONALITY
     RabbitMQ
@@ -1518,7 +1607,7 @@ Function Get-RabbitMqChannels {
         [Parameter(Mandatory=$false)]
         [int] $Timeout,
 
-        # rabbitmqctl parameter [bindinginfoitem]
+        # rabbitmqctl parameter [channelinfoitem]
         [Parameter(Mandatory=$false)]
         [ValidateSet("pid", "connection", "name", "number","user", "vhost", "transactional", "confirm", "consumer_count", "messages_unacknowledged", "messages_uncommitted","acks_uncommitted", "messages_unconfirmed", "prefetch_count", "global_prefetch_count")]
         [String[]] $InfoItems
@@ -1606,7 +1695,7 @@ Function Get-RabbitMqConnections {
         [Parameter(Mandatory=$false)]
         [int] $Timeout,
 
-        # rabbitmqctl parameter [bindinginfoitem]
+        # rabbitmqctl parameter [connectioninfoitem]
         [Parameter(Mandatory=$false)]
         [ValidateSet("pid", "connection", "name", "number","user", "vhost", "transactional", "confirm", "consumer_count", "messages_unacknowledged", "messages_uncommitted","acks_uncommitted", "messages_unconfirmed", "prefetch_count", "global_prefetch_count")]
         [String[]] $InfoItems
@@ -1631,7 +1720,7 @@ Function Get-RabbitMqConnections {
 
         [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet -Timeout $Timeout
         if($VHost){
-            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
+            $rabbitControlParams = $rabbitControlParams + " -p $VHost"
         }
 
         Write-Verbose "Adding command parameter."
@@ -1647,23 +1736,1066 @@ Function Get-RabbitMqConnections {
     }
 }
 
+Function Get-RabbitMqExchanges {
+<#
+.SYNOPSIS
+    Lists the RabbitMq exchanges (message routers) for a vhost.
+
+.DESCRIPTION
+    Returns exchange details and metadata. By default the connections for the "/" virtual host are returned. The "-VHost" flag can be used to override this default.
+        -Available metadata includes: name (readable name), type (i.e. "fanout" or "topic"), durable (survives restart Y/N), auto_delete (deleted when empty after initial fill), internal (cannot be direct publish target), arguments (to customize behavior), policy (policy name applied)
+        -Default metadata is exchange name and type.
+        
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER VHost
+    Default host is "/", the root vhost.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Timeout
+    Operation timeout in seconds.
+
+.EXAMPLE
+    #This command displays the name of the exchange, it's current policy, and arguments available for that exchange.
+    Get-RabbitMqExchanges -VHost local_rabbitmq -InfoItems name,arguments,policy
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [-t timeout]
+        [Parameter(Mandatory=$false)]
+        [int] $Timeout,
+
+        # rabbitmqctl parameter [exchangeinfoitem]
+        [Parameter(Mandatory=$false)]
+        [ValidateSet("name", "type", "durable", "auto_delete", "internal", "arguments", "policy")]
+        [String[]] $InfoItems
+    )
+
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqExchanges"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet -Timeout $Timeout
+        if($VHost){
+            $rabbitControlParams = $rabbitControlParams + " -p $VHost"
+        }
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "list_exchanges $InfoItems"
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqExchanges"
+    }
+}
+
+Function Get-RabbitMqConsumers {
+<#
+.SYNOPSIS
+    Lists the RabbitMq consumers (message receivers / subscribers) for a vhost.
+
+.DESCRIPTION
+    List consumers, i.e. subscriptions to a queue's message stream. By default all consumers of queues for the "/" virtual host are returned. The "-VHost" flag can be used to override this default.
+        
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+    Each line shows the name of the queue subscribed to, the id of the channel process via which the subscription was created and is managed, the consumer tag which uniquely identifies the subscription within a channel, a boolean indicating whether acknowledgements are expected for messages delivered to this consumer, an integer indicating the prefetch limit (with 0 meaning 'none'), and any arguments for this consumer. 
+
+.PARAMETER VHost
+    Default host is "/", the root vhost.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Timeout
+    Operation timeout in seconds.
+
+.EXAMPLE
+    #This command displays the list of queues and associated consumers for the virtual host named local_rabbitmq on the node rabbit@HOSTNAME.
+    Get-RabbitMqConsumers -VHost local_rabbitmq -Node rabbit@HOSTNAME
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [-t timeout]
+        [Parameter(Mandatory=$false)]
+        [int] $Timeout,
+
+        # rabbitmqctl parameter [exchangeinfoitem]
+        [Parameter(Mandatory=$false)]
+        [ValidateSet("name", "type", "durable", "auto_delete", "internal", "arguments", "policy")]
+        [String[]] $InfoItems
+    )
+
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqConsumers"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet -Timeout $Timeout
+        if($VHost){
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
+        }
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "list_consumers $InfoItems"
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqConsumers"
+    }
+}
+
+Function Get-RabbitMqPermissionsByVHost {
+<#
+.SYNOPSIS
+    For a given virtual host, lists the RabbitMq users and the permissions granted to that user on the vhost.
+
+.DESCRIPTION
+    This command returns a list of permissions by user for a given vhost.
+        
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER VHost
+    Default host is "/", the root vhost.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Timeout
+    Operation timeout in seconds.
+
+.EXAMPLE
+    #This command instructs the RabbitMQ broker to list all the users and their permissions the virtual host local_rabbitmq on the node rabbit@HOSTNAME. 
+    Get-RabbitMqPermissionsByVHost -Node rabbit@HOSTNAME -VHost local_rabbitmq
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [-t timeout]
+        [Parameter(Mandatory=$false)]
+        [int] $Timeout
+    )
+
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqPermissionsByVHost"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet -Timeout $Timeout
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "list_permissions"
+        if($VHost){
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
+        }
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqPermissionsByVHost"
+    }
+}
+
+Function Set-RabbitMqParameter {
+<#
+.SYNOPSIS
+    Add a value for a specific cluster-wide parameter for the specified vhost.
+
+.DESCRIPTION
+    This command instructs RabbitMQ to set the value of a parameter on the cluster / vhost. In general, you should refer to the documentation for the feature in question (i.e. federation) to see how to set and clear parameters.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER VHost
+    Default host is "/", the root virtual host.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Component
+    The name of the component the parameter applies to.
+
+.PARAMETER ParamName
+    The name of the parameter whose value should be set.
+
+.PARAMETER ParamValue
+    The new value of the parameter whose value should be set.
+
+.EXAMPLE
+    #This command instructs RabbitMQ to set the service account name used for federation to the value "admin" at VHost local_rabbitmq, sending the command via Node rabbit@HOSTNAME.
+        Set-RabbitMqParameter -Node "rabbit@HOSTNAME" -VHost local_rabbitmq -ParamName local_username -ParamValue admin -Component federation
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        [Parameter(Mandatory=$true)]
+        [string] $Component,
+
+        [Parameter(Mandatory=$true)]
+        [string] $ParamName,
+
+        [Parameter(Mandatory=$true)]
+        [string] $ParamValue
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Set-RabbitMqParameter"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "set_parameter"
+
+        Write-Verbose "Adding component parameter."
+        $rabbitControlParams = $rabbitControlParams + $Component
+        
+        Write-Verbose "Adding parameter name parameter."
+        $rabbitControlParams = $rabbitControlParams + $ParamName
+
+        Write-Verbose "Adding parameter value parameter."
+        $rabbitControlParams = $rabbitControlParams + $ParamValue
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Set-RabbitMqParameter"
+    }
+}
+
+Function Get-RabbitMqParameters {
+<#
+.SYNOPSIS
+    List cluster-wide parameters for the specified vhost.
+
+.DESCRIPTION
+    This command instructs RabbitMQ to set list the names and values of all parameters on the cluster / vhost. In general, you should refer to the documentation for the feature in question (i.e. federation) to see how to set and clear parameters.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER VHost
+    Default host is "/", the root virtual host.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Component
+    The name of the component the parameter applies to.
+
+.EXAMPLE
+    #This command instructs RabbitMQ to list all parameters and their values at VHost local_rabbitmq, sending the command via Node rabbit@HOSTNAME.
+        Get-RabbitMqParameters -Node "rabbit@HOSTNAME" -VHost local_rabbitmq
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqParameter"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "list_parameters"
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqParameter"
+    }
+}
+
+Function Remove-RabbitMqConnection {
+<#
+.SYNOPSIS
+    Close a connection which is listening to a queue.
+
+.DESCRIPTION
+    This command instructs RabbitMQ to disconnect a listener (connection) from a queue.  A message is sent to the connected client explaining the disconnection.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER ConnectionPid
+    The process ID of the connection to remove.
+
+.PARAMETER Reason
+    Explanation sent to the connected client.
+
+.EXAMPLE
+    #This command instructs RabbitMQ to close connection with ID 282, and send the message "scheduled maintenance until 8:00pm" to the listening client.
+        Remove-RabbitMqConnection -ConnectionPid 282 -Reason "scheduled maintenance until 8:00pm"
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [connectionpid]
+        [Parameter(Mandatory=$true)]
+        [switch] $ConnectionPid,
+
+        # rabbitmqctl parameter [explanation]
+        [Parameter(Mandatory=$false)]
+        [switch] $Reason="session disconnected by host"
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Remove-RabbitMqConnection"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "close_connection"
+        
+        Write-Verbose "Adding connection PID parameter."
+        $rabbitControlParams = $rabbitControlParams + $ConnectionPid 
+
+        Write-Verbose "Adding reason parameter."
+        $rabbitControlParams = $rabbitControlParams + $Reason
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Remove-RabbitMqConnection"
+    }
+}
+
+Function Get-RabbitMqEnvironment {
+<#
+.SYNOPSIS
+    Display the name and value of each variable in the application environment for each running application.
+
+.DESCRIPTION
+    This command displays the name and value of each variable in the environment, for each running application.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #List environment variables on the current node, suppressing informational messages.
+        Get-RabbitMqEnvironment -Quiet
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqEnvironment"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "environment"
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqEnvironment"
+    }
+}
+
+Function Get-RabbitMqHealth {
+<#
+.SYNOPSIS
+    Perform a health check on the rabbit node
+
+.DESCRIPTION
+    This command displays "Health check passed" if the application is running, list_queues and list_channels return, and no alarms are set / triggered. 
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #Prints "Health check passed" if application is running, list_queues and list_channels return, and alarms are not set. 
+        Get-RabbitMqHealth -Quiet
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqHealth"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "node_health_check"
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqHealth"
+    }
+}
+
+Function Get-RabbitMqHealth {
+<#
+.SYNOPSIS
+    Perform a health check on the rabbit node
+
+.DESCRIPTION
+    This command displays "Health check passed" if the application is running, list_queues and list_channels return, and no alarms are set / triggered. 
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #Prints "Health check passed" if application is running, list_queues and list_channels return, and alarms are not set. 
+        Get-RabbitMqHealth -Quiet
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqHealth"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "node_health_check"
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqHealth"
+    }
+}
+
+Function Invoke-RabbitMqEncoder {
+<#
+.SYNOPSIS
+    Encrypts the input value using the facilities available on the RabbitMQ node
+
+.DESCRIPTION
+    This command converts an un-encrypted string into its encrypted equivalent, using the passphase and encryption types defined by the parameters. 
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER EncryptedText
+    The text to be encoded / encrypted.
+
+.PARAMETER Passphrase
+    The key phrase which will be supplied in order to decrypt the data.
+
+.PARAMETER Cipher
+    The cipher which will be supplied in order to decrypt the data.
+
+.PARAMETER Hash
+    The hash which will be supplied in order to decrypt the data.
+
+.PARAMETER Iterations
+    The number of encryption passes which will be applied to the data (must be supplied in order to decrypt the data).
+
+.EXAMPLE
+    #Returns the encrypted text encoded using parameters provided 
+        Invoke-RabbitMqEncoder -Text "quick brown fox" -Passphrase "lazy dog" -Cipher blowfish_cfb64 -Hash sha256 -Iterations 14
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [value]
+        [Parameter(Mandatory=$true,Position=1)]
+        [String] $Text,
+
+        # rabbitmqctl parameter [passphrase]
+        [Parameter(Mandatory=$true,Position=2)]
+        [String] $Passphrase,
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [--cipher cipher]
+        [Parameter(Mandatory=$false)]
+        [String] $Cipher=$null,
+
+        # rabbitmqctl parameter [--hash hash]
+        [Parameter(Mandatory=$false)]
+        [String] $Hash=$null,
+
+        # rabbitmqctl parameter [--iterations iterations]
+        [Parameter(Mandatory=$false)]
+        [int] $Iterations=$null
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Invoke-RabbitMqEncoder"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "encode"
+        $rabbitControlParams = $rabbitControlParams + "$Text"
+        $rabbitControlParams = $rabbitControlParams + "$Passphrase"
+
+        if ($Hash)
+        {
+            Write-Verbose "Adding hash parameter."
+            $rabbitControlParams = $rabbitControlParams + "--hash $Hash"
+        }
+        if ($Cipher)
+        {
+            Write-Verbose "Adding cipher parameter."
+            $rabbitControlParams = $rabbitControlParams + "--cipher $Cipher"
+        }
+        if ($Iterations > 0)
+        {
+            Write-Verbose "Adding iterations parameter."
+            $rabbitControlParams = $rabbitControlParams + "--iterations $Iterations"
+        }
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Invoke-RabbitMqEncoder"
+    }
+}
+
+Function Get-RabbitMqEncoderOptions {
+<#
+.SYNOPSIS
+    Returns available options for use in the Invoke-RabbitMqEncoder command
+
+.DESCRIPTION
+    Lists encoding types (ciphers, hashes, etc) available for the Invoke-RabbitMqEncoder command.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Ciphers
+    List available ciphers (i.e. "blowfish_cfb64") available.
+
+.PARAMETER Hashes
+    List available hashes (i.e. "SHA256") available.
+
+.EXAMPLE
+    #Lists the available ciphers and hashes for encrypting data on the node
+        Get-RabbitMqEncoderOptions -Hashes -Ciphers
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [-- list-ciphers]
+        [Parameter(Mandatory=$false)]
+        [switch] $Ciphers,
+
+        # rabbitmqctl parameter [-- list-hashes]
+        [Parameter(Mandatory=$false)]
+        [switch] $Hashes
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqEncoderOptions"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        if($Ciphers -eq $false -and $Hashes -eq $false){
+            $Ciphers = $true
+            $Hashes = $true
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "encode"
+        if($Ciphers) {
+            $rabbitControlParams = $rabbitControlParams + "--list-ciphers"
+        }
+        if($Hashes) {
+            $rabbitControlParams = $rabbitControlParams + "--list-hashes"
+        }
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqEncoderOptions"
+    }
+}
+
+Function Invoke-RabbitMqDecoder {
+<#
+.SYNOPSIS
+    Decrypts the input value using the facilities available on the RabbitMQ node
+
+.DESCRIPTION
+    This command converts an encrypted string into its human-readable equivalent, using the passphase and encryption types defined during the initial encryption. 
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER EncryptedText
+    The text to be decoded / decrypted.
+
+.PARAMETER Passphrase
+    The key phrase used during the original encryption of the data.
+
+.PARAMETER Cipher
+    The cipher used during the original encryption of the data.
+
+.PARAMETER Hash
+    The hash used during the original encryption of the data.
+
+.PARAMETER Iterations
+    The number of encryption passes used during the original encryption of the data.
+
+.EXAMPLE
+    #Returns the original text encoded using the Invoke-RabbitMqEncoder command (with the same parameters provided below)
+        Invoke-RabbitMqDecoder -EncryptedText "" -Passphrase "lazy dog" -Cipher blowfish_cfb64 -Hash sha256 -Iterations 14
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [value]
+        [Parameter(Mandatory=$true, Position=1)]
+        [String] $EncryptedText,
+
+        # rabbitmqctl parameter [passphrase]
+        [Parameter(Mandatory=$true, Position=2)]
+        [String] $Passphrase,
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [--cipher cipher]
+        [Parameter(Mandatory=$false)]
+        [String] $Cipher=$null,
+
+        # rabbitmqctl parameter [--hash hash]
+        [Parameter(Mandatory=$false)]
+        [String] $Hash=$null,
+
+        # rabbitmqctl parameter [--iterations iterations]
+        [Parameter(Mandatory=$false)]
+        [int] $Iterations=$null
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Invoke-RabbitMqDecoder"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "encode --decode"
+        $rabbitControlParams = $rabbitControlParams + "$EncodedText"
+        $rabbitControlParams = $rabbitControlParams + "$Passphrase"
+
+        if ($Hash)
+        {
+            Write-Verbose "Adding hash parameter."
+            $rabbitControlParams = $rabbitControlParams + "--hash $Hash"
+        }
+        if ($Cipher)
+        {
+            Write-Verbose "Adding cipher parameter."
+            $rabbitControlParams = $rabbitControlParams + "--cipher $Cipher"
+        }
+        if ($Iterations > 0)
+        {
+            Write-Verbose "Adding iterations parameter."
+            $rabbitControlParams = $rabbitControlParams + "--iterations $Iterations"
+        }
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Invoke-RabbitMqDecoder"
+    }
+}
+
 # Export Declarations --------------------------------------------------------------------------------------------------
 Export-ModuleMember -Function Add-RabbitMqUser
 Export-ModuleMember -Function Add-RabbitMqVHost
+Export-ModuleMember -Function Clear-RabbitMqParameter
 Export-ModuleMember -Function Clear-RabbitMqPassword
 Export-ModuleMember -Function Confirm-RabbitMqCredentials
 Export-ModuleMember -Function Get-RabbitMqBindings
 Export-ModuleMember -Function Get-RabbitMqChannels
 Export-ModuleMember -Function Get-RabbitMqConnections
-Export-ModuleMember -Function Get-RabbitMqPermissions
+Export-ModuleMember -Function Get-RabbitMqConsumers
+Export-ModuleMember -Function Get-RabbitMqEncoderOptions
+Export-ModuleMember -Function Get-RabbitMqEnvironment
+Export-ModuleMember -Function Get-RabbitMqExchanges
+Export-ModuleMember -Function Get-RabbitMqHealth
+Export-ModuleMember -Function Get-RabbitMqParameters
+Export-ModuleMember -Function Get-RabbitMqPermissionsByUser
+Export-ModuleMember -Function Get-RabbitMqPermissionsByVHost
 Export-ModuleMember -Function Get-RabbitMqStats
 Export-ModuleMember -Function Get-RabbitMqUsers
 Export-ModuleMember -Function Get-RabbitMqVHosts
+Export-ModuleMember -Function Invoke-RabbitMqEncoder
+Export-ModuleMember -Function Invoke-RabbitMqDecoder
+Export-ModuleMember -Function Remove-RabbitMqConnection
 Export-ModuleMember -Function Remove-RabbitMqUser
 Export-ModuleMember -Function Remove-RabbitMqVHost
 Export-ModuleMember -Function Reset-RabbitMPassword
 Export-ModuleMember -Function Reset-RabbitMq
 Export-ModuleMember -Function Start-RabbitMq
 Export-ModuleMember -Function Set-RabbitMqUserTags
+Export-ModuleMember -Function Set-RabbitMqParameter
 Export-ModuleMember -Function Stop-RabbitMq
 Export-ModuleMember -Function Wait-RabbitMq
