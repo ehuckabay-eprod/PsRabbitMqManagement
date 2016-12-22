@@ -2545,7 +2545,7 @@ Function Invoke-RabbitMqEncoder {
             Write-Verbose "Adding cipher parameter."
             $rabbitControlParams = $rabbitControlParams + "--cipher $Cipher"
         }
-        if ($Iterations > 0)
+        if ($Iterations -gt 0)
         {
             Write-Verbose "Adding iterations parameter."
             $rabbitControlParams = $rabbitControlParams + "--iterations $Iterations"
@@ -2751,7 +2751,7 @@ Function Invoke-RabbitMqDecoder {
             Write-Verbose "Adding cipher parameter."
             $rabbitControlParams = $rabbitControlParams + "--cipher $Cipher"
         }
-        if ($Iterations > 0)
+        if ($Iterations -gt 0)
         {
             Write-Verbose "Adding iterations parameter."
             $rabbitControlParams = $rabbitControlParams + "--iterations $Iterations"
@@ -2767,11 +2767,463 @@ Function Invoke-RabbitMqDecoder {
     }
 }
 
+Function Get-RabbitMqEncoderOptions {
+<#
+.SYNOPSIS
+    Returns available options for use in the Invoke-RabbitMqEncoder command
+
+.DESCRIPTION
+    Lists encoding types (ciphers, hashes, etc) available for the Invoke-RabbitMqEncoder command.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Ciphers
+    List available ciphers (i.e. "blowfish_cfb64") available.
+
+.PARAMETER Hashes
+    List available hashes (i.e. "SHA256") available.
+
+.EXAMPLE
+    #Lists the available ciphers and hashes for encrypting data on the node
+        Get-RabbitMqEncoderOptions -Hashes -Ciphers
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [-- list-ciphers]
+        [Parameter(Mandatory=$false)]
+        [switch] $Ciphers,
+
+        # rabbitmqctl parameter [-- list-hashes]
+        [Parameter(Mandatory=$false)]
+        [switch] $Hashes
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqEncoderOptions"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        if($Ciphers -eq $false -and $Hashes -eq $false){
+            $Ciphers = $true
+            $Hashes = $true
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "encode"
+        if($Ciphers) {
+            $rabbitControlParams = $rabbitControlParams + "--list-ciphers"
+        }
+        if($Hashes) {
+            $rabbitControlParams = $rabbitControlParams + "--list-hashes"
+        }
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqEncoderOptions"
+    }
+}
+
+Function Set-RabbitMqCluster {
+<#
+.SYNOPSIS
+    Adds the current (or specified) RabbitMQ node to a node cluster
+
+.DESCRIPTION
+    Instruct the node to become a member of the cluster the node is in. Before clustering, the node is reset, so be careful when using this command. For this command to succeed the RabbitMQ application must have been stopped, e.g. with Stop-RabbitMq.
+    Note: to remove a node from a cluster, use Stop-RabbitMq followed by Reset-RabbitMq
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Cluster
+    Required.  Indicates the cluster (node) to join.
+
+.PARAMETER Ram
+    Indicates that the node should be in-memory only, and should not replicate data on disc.  RAM nodes are primarily used for scalability.  A cluster must always have at least one disc node (non-RAM), and usually should have more than one. 
+
+.EXAMPLE
+    #Instructs the local rabbit@LOCALHOST node to cluster with the node at rabbit@REMOTEHOST1, replicating only in-memory data
+        Set-RabbitMqCluster rabbit@REMOTEHOST1 -Node rabbit@LOCALHOST -Ram
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [clusternode]
+        [Parameter(Mandatory=$true, Position=1)]
+        [String] $Cluster,
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [--ram]
+        [Parameter(Mandatory=$false)]
+        [switch] $Ram
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Set-RabbitMqCluster"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "join_cluster"
+        $rabbitControlParams = $rabbitControlParams + $Cluster
+
+        if ($Ram)
+        {
+            Write-Verbose "Adding ram parameter."
+            $rabbitControlParams = $rabbitControlParams + "--ram"
+        }
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Set-RabbitMqCluster"
+    }
+}
+
+Function Set-RabbitMqPolicy {
+<#
+.SYNOPSIS
+    Sets the policy for the cluster which contains the specified node
+
+.DESCRIPTION
+    Sets a cluster-wide policy, exactly one of which will match each exchange or queue.  This allows various features to be controlled on a cluster-wide basis at runtime or queue / exchange startup.
+    Policies can be used to configure the federation plugin, mirrored queues, alternate exchanges, dead lettering, per-queue TTLs, and maximum queue length. 
+    Note: to apply policies for multiple features, modify the shared policy definition.  Only one policy will apply to a given queue or exchange, but that policy may apply definitions related to multiple features.
+
+.PARAMETER Name
+    Required. Readable policy name.
+
+.PARAMETER Pattern
+    Required. Regular expression used for matching component name.  Policy will be applied only to components with a matching name.
+
+.PARAMETER Json
+    Required. JSON definition of the policy values, escaped according to enviornment (Windows vs Unix).
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER VHost
+    Default host is "/", the root virtual host.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Priority
+    Precedence of the policy in determining which policy to apply to a node.  Default is 0, higher numbers indicate greater priority.
+
+.PARAMETER ApplyTo
+    Defines the type of objects the policy applies to.  Options are "queues", "exchanges", or "all".  Default is "all".
+
+.EXAMPLE
+    #On a windows machine, defines a policy named "failover" which causes queues whose name ends with "-backup" to be federated, with all other queues considered upstream from the federated queue
+        Set-RabbitMqPolicy failover "^.*-backup$" '"{""federation-upstream-set"":""all""}"' -ApplyTo queues
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [name]
+        [Parameter(Mandatory=$true, Position=1)]
+        [String] $Name,
+
+        # rabbitmqctl parameter [pattern]
+        [Parameter(Mandatory=$true, Position=2)]
+        [String] $Pattern,
+
+        # rabbitmqctl parameter [definition]
+        [Parameter(Mandatory=$true, Position=3)]
+        [String] $Json,
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [--priority priority]
+        [Parameter(Mandatory=$false)]
+        [int] $Priority,
+
+        # rabbitmqctl parameter [--apply-to apply-to]
+        [Parameter(Mandatory=$false)]
+        [ValidateSet("exchanges", "queues", "all")]
+        [string] $ApplyTo
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Set-RabbitMqPolicy"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "set_policy"
+        $rabbitControlParams = $rabbitControlParams + $Name
+        $rabbitControlParams = $rabbitControlParams + $Pattern
+        $rabbitControlParams = $rabbitControlParams + $Json
+
+        if ($Priority -gt 0)
+        {
+            Write-Verbose "Adding priority parameter."
+            $rabbitControlParams = $rabbitControlParams + "--priority $Priority"
+        }
+
+        if ($ApplyTo)
+        {
+            Write-Verbose "Adding apply to parameter."
+            $rabbitControlParams = $rabbitControlParams + "--apply-to $ApplyTo"
+        }
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Set-RabbitMqPolicy"
+    }
+}
+
+Function Clear-RabbitMqPolicy {
+<#
+.SYNOPSIS
+    Removes the named policy from the cluster which contains the specified node
+
+.DESCRIPTION
+    Removes a cluster-wide policy, by name.  This allows various features to be controlled on a cluster-wide basis at runtime or queue / exchange startup.
+    Policies can be used to configure the federation plugin, mirrored queues, alternate exchanges, dead lettering, per-queue TTLs, and maximum queue length. 
+
+.PARAMETER Name
+    Required. Readable policy name.  Should be unique per policy.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER VHost
+    Default host is "/", the root virtual host.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #Removes the policy named "failover" from the cluster that contains vhost local_rabbitmq
+        Clear-RabbitMqPolicy failover -VHost local_rabbitmq
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [name]
+        [Parameter(Mandatory=$true, Position=1)]
+        [String] $Name,
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Clear-RabbitMqPolicy"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "clear_policy"
+        $rabbitControlParams = $rabbitControlParams + $Name
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Clear-RabbitMqPolicy"
+    }
+}
+
+Function Get-RabbitMqPolicies {
+<#
+.SYNOPSIS
+    Lists all policies applied to the cluster which contains the specified node
+
+.DESCRIPTION
+    Lists the policies which have been defined on a cluster, 
+    Policies can be used to configure the federation plugin, mirrored queues, alternate exchanges, dead lettering, per-queue TTLs, and maximum queue length. 
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER VHost
+    Default host is "/", the root virtual host.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #List the policies which have been successfully applied to any exchange or queue on the vhost local_rabbitmq
+        Get-RabbitMqPolicies -VHost local_rabbitmq
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqPolicies"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "list_policies"
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqPolicies"
+    }
+}
+
 # Export Declarations --------------------------------------------------------------------------------------------------
 Export-ModuleMember -Function Add-RabbitMqUser
 Export-ModuleMember -Function Add-RabbitMqVHost
 Export-ModuleMember -Function Clear-RabbitMqParameter
 Export-ModuleMember -Function Clear-RabbitMqPassword
+Export-ModuleMember -Function Clear-RabbitMqPolicy
 Export-ModuleMember -Function Confirm-RabbitMqCredentials
 Export-ModuleMember -Function Get-RabbitMqBindings
 Export-ModuleMember -Function Get-RabbitMqChannels
@@ -2784,6 +3236,7 @@ Export-ModuleMember -Function Get-RabbitMqHealth
 Export-ModuleMember -Function Get-RabbitMqParameters
 Export-ModuleMember -Function Get-RabbitMqPermissionsByUser
 Export-ModuleMember -Function Get-RabbitMqPermissionsByVHost
+Export-ModuleMember -Function Get-RabbitMqPolicies
 Export-ModuleMember -Function Get-RabbitMqStats
 Export-ModuleMember -Function Get-RabbitMqUsers
 Export-ModuleMember -Function Get-RabbitMqVHosts
@@ -2795,7 +3248,9 @@ Export-ModuleMember -Function Remove-RabbitMqVHost
 Export-ModuleMember -Function Reset-RabbitMPassword
 Export-ModuleMember -Function Reset-RabbitMq
 Export-ModuleMember -Function Start-RabbitMq
-Export-ModuleMember -Function Set-RabbitMqUserTags
+Export-ModuleMember -Function Set-RabbitMqCluster
 Export-ModuleMember -Function Set-RabbitMqParameter
+Export-ModuleMember -Function Set-RabbitMqPolicy
+Export-ModuleMember -Function Set-RabbitMqUserTags
 Export-ModuleMember -Function Stop-RabbitMq
 Export-ModuleMember -Function Wait-RabbitMq
