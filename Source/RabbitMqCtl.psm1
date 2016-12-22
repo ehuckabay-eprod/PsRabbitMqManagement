@@ -246,7 +246,7 @@ Function Add-RabbitMqVHost {
         Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "add_vhost"
 
-        Write-Verbose "Adding username parameter."
+        Write-Verbose "Adding vhost parameter."
         $rabbitControlParams = $rabbitControlParams + $VHost
 
         Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
@@ -1543,12 +1543,12 @@ Function Get-RabbitMqBindings {
         }
 
         [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet -Timeout $Timeout
-        if($VHost){
-            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
-        }
 
         Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "list_bindings $InfoItems"
+        if($VHost){
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
+        }
 
         Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
         Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
@@ -1720,7 +1720,7 @@ Function Get-RabbitMqConnections {
 
         [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet -Timeout $Timeout
         if($VHost){
-            $rabbitControlParams = $rabbitControlParams + " -p $VHost"
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
         }
 
         Write-Verbose "Adding command parameter."
@@ -1808,7 +1808,7 @@ Function Get-RabbitMqExchanges {
 
         [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet -Timeout $Timeout
         if($VHost){
-            $rabbitControlParams = $rabbitControlParams + " -p $VHost"
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
         }
 
         Write-Verbose "Adding command parameter."
@@ -1894,12 +1894,12 @@ Function Get-RabbitMqConsumers {
         }
 
         [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet -Timeout $Timeout
-        if($VHost){
-            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
-        }
 
         Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "list_consumers $InfoItems"
+        if($VHost){
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
+        }
 
         Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
         Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
@@ -3056,6 +3056,11 @@ Function Set-RabbitMqPolicy {
             $rabbitControlParams = $rabbitControlParams + "--apply-to $ApplyTo"
         }
 
+        if($VHost){
+            Write-Verbose "Adding vhost parameter."
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
+        }
+
         Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
         Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
     }
@@ -3136,6 +3141,11 @@ Function Clear-RabbitMqPolicy {
         $rabbitControlParams = $rabbitControlParams + "clear_policy"
         $rabbitControlParams = $rabbitControlParams + $Name
 
+        if($VHost){
+            Write-Verbose "Adding vhost parameter."
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
+        }
+
         Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
         Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
     }
@@ -3207,6 +3217,10 @@ Function Get-RabbitMqPolicies {
 
         Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "list_policies"
+        if($VHost){
+            Write-Verbose "Adding vhost parameter."
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
+        }
 
         Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
         Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
@@ -3215,6 +3229,110 @@ Function Get-RabbitMqPolicies {
     End
     {
         Write-Verbose "End: Get-RabbitMqPolicies"
+    }
+}
+
+Function Set-RabbitMqUserPermissions {
+<#
+.SYNOPSIS
+    Adds access permissions to a user
+
+.DESCRIPTION
+    This command instructs RabbitMQ to add permissions a specified user which allow them to configure, write, or read resources matching a given pattern set.
+
+.PARAMETER Username
+    Required.  Username of the user whose permissions are being defined.
+
+.PARAMETER ConfigPattern
+    Regular expression which matches resource names which the user should be allowed to configure.  Defaults to no permissions, and overwrites any existing permissions.
+
+.PARAMETER WritePattern
+    Regular expression which matches resource names which the user should be allowed to write.  Defaults to no permissions, and overwrites any existing permissions.
+
+.PARAMETER ReadPattern
+    Regular expression which matches resource names which the user should be allowed to read.  Defaults to no permissions, and overwrites any existing permissions.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER VHost
+    Default host is "/", the root virtual host.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #The command below allows user "guest" to read all resources, but disallows write and configure permissions.
+        Set-RabbitMqUserPermissions -Username guest -ConfigPattern "^$" -WritePattern "^$" -ReadPattern ".*"
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory=$true, Position=1)]
+        [string] $Username,
+
+        [Parameter(Mandatory=$false, Position=2)]
+        [string] $ConfigPattern="^$",
+
+        [Parameter(Mandatory=$false, Position=3)]
+        [string] $WritePattern="^$",
+
+        [Parameter(Mandatory=$false, Position=4)]
+        [string] $ReadPattern="^$",
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Set-RabbitMqUserPermissions"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "set_permissions"
+        $rabbitControlParams = $rabbitControlParams + $Username
+        $rabbitControlParams = $rabbitControlParams + $ConfigPattern
+        $rabbitControlParams = $rabbitControlParams + $WritePattern
+        $rabbitControlParams = $rabbitControlParams + $ReadPattern
+
+        if($VHost){
+            Write-Verbose "Adding vhost parameter."
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
+        }
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Set-RabbitMqUserPermissions"
     }
 }
 
@@ -3251,6 +3369,7 @@ Export-ModuleMember -Function Start-RabbitMq
 Export-ModuleMember -Function Set-RabbitMqCluster
 Export-ModuleMember -Function Set-RabbitMqParameter
 Export-ModuleMember -Function Set-RabbitMqPolicy
+Export-ModuleMember -Function Set-RabbitMqUserPermissions
 Export-ModuleMember -Function Set-RabbitMqUserTags
 Export-ModuleMember -Function Stop-RabbitMq
 Export-ModuleMember -Function Wait-RabbitMq
