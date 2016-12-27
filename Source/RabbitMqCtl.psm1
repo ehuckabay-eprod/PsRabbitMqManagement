@@ -4835,6 +4835,78 @@ Function Reset-RabbitMqClusterNames {
     }
 }
 
+Function Invoke-RabbitMqHipeCompile {
+<#
+.SYNOPSIS
+    Compiles files to optimize performance
+
+.DESCRIPTION
+    This command instructs RabbitMQ to precompile the node confguration using High Performance Erlang, which improves performance by substantially (20-80%) at the cost of additional startup time.
+
+.PARAMETER Directory
+    Required.  The directory to place the compiled files in.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).  Can also be configured in the RabbitMQ config file.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #This command compiles the Erlang files associated with rabbit@LOCALHOST, storing the resulting files in /tmp/rabbit-hipe/ebin
+        Invoke-RabbitMqHipeCompile /tmp/rabbit-hipe/ebin -Node rabbit@LOCALHOST
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [oldnode newnode]
+        [Parameter(Mandatory=$true, Position=1)]
+        [String] $Directory,
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Invoke-RabbitMqHipeCompile"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "hipe_compile"
+        $rabbitControlParams = $rabbitControlParams + $Directory
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Invoke-RabbitMqHipeCompile"
+    }
+}
+
 
 
 # Export Declarations --------------------------------------------------------------------------------------------------
@@ -4865,9 +4937,10 @@ Export-ModuleMember -Function Get-RabbitMqReport
 Export-ModuleMember -Function Get-RabbitMqStatistics
 Export-ModuleMember -Function Get-RabbitMqUsers
 Export-ModuleMember -Function Get-RabbitMqVHosts
+Export-ModuleMember -Function Invoke-RabbitMqDecoder
 Export-ModuleMember -Function Invoke-RabbitMqEncoder
 Export-ModuleMember -Function Invoke-RabbitMqEval
-Export-ModuleMember -Function Invoke-RabbitMqDecoder
+Export-ModuleMember -Function Invoke-RabbitMqHipeCompile
 Export-ModuleMember -Function Invoke-RabbitMqLogSwap
 Export-ModuleMember -Function Remove-RabbitMqConnection
 Export-ModuleMember -Function Remove-RabbitMqNodeFromCluster
