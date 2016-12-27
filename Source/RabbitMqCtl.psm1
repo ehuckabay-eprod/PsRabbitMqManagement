@@ -388,7 +388,7 @@ Function Clear-RabbitMqPassword {
     
     Begin
     {
-        Write-Verbose "Begin: Clear-RabbitMPassword"
+        Write-Verbose "Begin: Clear-RabbitMqPassword"
     }
     
     Process
@@ -1037,6 +1037,9 @@ Function Start-RabbitMq {
 .PARAMETER Quiet
     Informational messages are suppressed when quiet mode is in effect.
 
+.PARAMETER Force
+    Forces the node to start, overriding failure to start because the node was not the last in its cluster to shut down.  Note that this may be destructive in that any changes to the cluster after this node was shut down may be lost.  If the last node was permanently lost, use Remove-RabbitMqNodeFromCluster -ForceWhileOffline instead, to ensure the mirrored queues get promoted.
+
 .EXAMPLE
     #Start the RabbitMQ application at Node rabbit@HOSTNAME and suppress informational messages.
         Start-RabbitMq -Node "rabbit@HOSTNAME" -Quiet
@@ -1052,7 +1055,11 @@ Function Start-RabbitMq {
 
         # rabbitmqctl parameter [-q (quiet)]
         [Parameter(Mandatory=$false)]
-        [switch] $Quiet
+        [switch] $Quiet,
+
+        # rabbitmqctl command [force_boot]
+        [Parameter(Mandatory=$false)]
+        [switch] $Force
     )
     
     Begin
@@ -1073,6 +1080,13 @@ Function Start-RabbitMq {
         }
 
         [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        if($Force) {
+            Write-Verbose "Adding command for force boot."
+            $rabbitBootParams = $rabbitControlParams + "force_boot"
+            Write-Verbose "Executing command: $rabbitControlPath $rabbitBootParams"
+            Start-Process -ArgumentList $rabbitBootParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+        }
 
         Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "start_app"
@@ -1234,7 +1248,7 @@ Function Stop-RabbitMq {
 
     End
     {
-        Write-Verbose "End: Start-RabbitMq"
+        Write-Verbose "End: Stop-RabbitMq"
     }
 }
 
@@ -1311,7 +1325,7 @@ Function Wait-RabbitMq {
     }
 }
 
-Function Get-RabbitMqStats {
+Function Get-RabbitMqStatistics {
 <#
 .SYNOPSIS
     Lists the RabbitMq queues present on a host, as well as metadata about the current queue state.
@@ -1331,7 +1345,7 @@ Function Get-RabbitMqStats {
     Operation timeout in seconds.
 
 .EXAMPLE
-    Get-RabbitMqStats name,messages,head_message_timestamp
+    Get-RabbitMqStatistics name,messages,head_message_timestamp
 
 .FUNCTIONALITY
     RabbitMQ
@@ -1363,7 +1377,7 @@ Function Get-RabbitMqStats {
 
     Begin
     {
-        Write-Verbose "Begin: Get-RabbitMqStats"
+        Write-Verbose "Begin: Get-RabbitMqStatistics"
     }
     
     Process
@@ -1393,7 +1407,7 @@ Function Get-RabbitMqStats {
 
     End
     {
-        Write-Verbose "End: Get-RabbitMqStats"
+        Write-Verbose "End: Get-RabbitMqStatistics"
     }
 }
 
@@ -3336,15 +3350,1507 @@ Function Set-RabbitMqUserPermissions {
     }
 }
 
+Function Clear-RabbitMqUserPermissions {
+<#
+.SYNOPSIS
+    Deletes access permissions from a user
+
+.DESCRIPTION
+    This command instructs RabbitMQ to remove ALL permissions from a specified user, including configure, write, and read permissions.  It is scoped to a specific virtual host.
+
+.PARAMETER Username
+    Required.  Username of the user whose permissions are being defined.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER VHost
+    Default host is "/", the root virtual host.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #The command below removes ALL permissions for user "guest" on VHost local_rabbitmq.  Other hosts are not impacted.
+        Clear-RabbitMqUserPermissions -Username guest -VHost local_rabbitmq
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory=$true, Position=1)]
+        [string] $Username,
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Clear-RabbitMqUserPermissions"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "clear_permissions"
+        $rabbitControlParams = $rabbitControlParams + $Username
+
+        if($VHost){
+            Write-Verbose "Adding vhost parameter."
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
+        }
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Clear-RabbitMqUserPermissions"
+    }
+}
+
+Function Get-RabbitMqClusterStatus {
+<#
+.SYNOPSIS
+    List nodes in the cluster
+
+.DESCRIPTION
+    This command instructs RabbitMQ to list all nodes in the cluster grouped by node type, together with the currently running nodes.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #The command below lists clusters on the "rabbit@LOCALHOST" node
+        Get-RabbitMqClusterStatus -Node rabbit@LOCALHOST
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqClusterStatus"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "cluster_status"
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqClusterStatus"
+    }
+}
+
+Function Set-RabbitMqTrace {
+<#
+.SYNOPSIS
+    Turn on message tracing on a vhost.
+
+.DESCRIPTION
+    This command instructs RabbitMQ to enable firehose tracing, which provides meta-information about all messages sent across the specified virtual host.  This metadata is published as separate message on the topic exchange "amq.rabbitmq.trace".
+    -   The routing key for these messages will be either "publish.exchangename" for messages entering the broker, or "deliver.queuename" for messages leaving the broker.
+    -   Metadata provided in these messages includes: exchange_name (exchange published to), routing_keys (routing plus CC/BCC info), properties (message properties), node (node where trace message was generated), redelivered (message redelivered flag set Y/N).
+    -   See https://www.rabbitmq.com/amqp-0-9-1-reference.html#class.basic for more info on message properties.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER VHost
+    Default host is "/", the root virtual host.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #The command below turns on message tracing on the "local_rabbitmq" host of the rabbit@LOCALHOST" node, with no info messages
+        Set-RabbitMqTrace -VHost local_rabbitmq -Node rabbit@LOCALHOST -Quiet
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Set-RabbitMqTrace"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "trace_on"
+
+        if($VHost){
+            Write-Verbose "Adding vhost parameter."
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
+        }
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Set-RabbitMqTrace"
+    }
+}
+
+Function Clear-RabbitMqTrace {
+<#
+.SYNOPSIS
+    Turn off message tracing on a vhost.
+
+.DESCRIPTION
+    This command instructs RabbitMQ to disable firehose tracing.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER VHost
+    Default host is "/", the root virtual host.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #The command below turns off message tracing on the "local_rabbitmq" host of the rabbit@LOCALHOST" node, with no info messages
+        Clear-RabbitMqTrace -VHost local_rabbitmq -Node rabbit@LOCALHOST -Quiet
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Clear-RabbitMqTrace"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "trace_off"
+
+        if($VHost){
+            Write-Verbose "Adding vhost parameter."
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
+        }
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Clear-RabbitMqTrace"
+    }
+}
+
+Function Invoke-RabbitMqLogSwap {
+<#
+.SYNOPSIS
+    Start a new log set after archiving existing logs.
+
+.DESCRIPTION
+    This command instructs RabbitMQ to archive the current logs (with a user-specified suffix), and start new log files in the default location.  If a file exists matching the provided suffix, the contents are appended to the end of that file, otherwise the new file is created.  If no archive is desired, specify the -Delete flag.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Suffix
+    The suffix to append to the archived log files.  Default is today's date and time in sortable format.
+
+.PARAMETER Delete
+    Flag to indicate that no archives should be created.
+
+.EXAMPLE
+    #The command below archives the current logs for node rabbit@LOCALHOST, and starts new logs. Archived file names will end in ".bak.1"
+        Invoke-RabbitMqLogSwap -Suffix .bak.1 -Node rabbit@LOCALHOST
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [switch] $Delete
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Invoke-RabbitMqLogSwap"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "rotate_logs"
+        if($Delete -ne $true){
+            Write-Verbose "Adding suffix parameter."
+            $rabbitControlParams = $rabbitControlParams + $Suffix
+        } else {
+            Write-Verbose "Delete specified - no log archives created."
+        }
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Invoke-RabbitMqLogSwap"
+    }
+}
+
+Function Get-RabbitMqBrokerStatus {
+<#
+.SYNOPSIS
+    List broker status information
+
+.DESCRIPTION
+    This command instructs RabbitMQ to list broker status, such as applications running on the Erlang node, RabbitMQ and Erlang versions, OS name, memory and file descriptor statistics.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #The command below lists clusters on the "rabbit@LOCALHOST" node
+        Get-RabbitMqBrokerStatus -Node rabbit@LOCALHOST
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqBrokerStatus"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "status"
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqBrokerStatus"
+    }
+}
+
+Function Set-RabbitMqFlowControl {
+<#
+.SYNOPSIS
+    Sets the memory usage level where flow control is triggered
+
+.DESCRIPTION
+    This command instructs RabbitMQ to turn on flow control (pausing incoming messages several times per second to allow the queues and message processing to keep up with incoming message rate).  A flow-controlled connection will show a state of "flow" in Get-RabbitMqConnections.
+
+.PARAMETER Limit
+    Required.  The max memory usage before flow control is triggered.  By default, provided as a decimal number between 0 and 1 (i.e. 0.75 = 75% of available memory).  Alternately, when the -Absolute flag is provided, can be a specific number of bytes (i.e. 2048000) or a string with memory units (i.e. 2MB).
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Absolute
+    Indicates that the Limit parameter provides a fixed memory amount.
+
+.EXAMPLE
+    #This command triggers flow control mode when the node "rabbit@LOCALHOST" exceeds 90% of memory utilization
+        Set-RabbitMqFlowControl 0.9 -Node rabbit@LOCALHOST
+
+.EXAMPLE
+    #The command below triggers flow control mode when the default node exceeds 3GB of memory utilization
+        Set-RabbitMqFlowControl 3GB -Absolute
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory=$true, Position=1)]
+        [string] $Limit,
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [absolute]
+        [Parameter(Mandatory=$false)]
+        [switch] $Absolute
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Set-RabbitMqFlowControl"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        if($Absolute -ne $true){
+            if($Limit -lt 0 -or $Limit -gt 1) {
+                Write-Error "Limit parameter must be a decimal between 0 and 1 when -Absolute flag is not specified."
+                return
+            }
+        }
+
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "set_vm_memory_high_watermark"
+        if($Absolute){
+            Write-Verbose "Adding absolute flag."
+            $rabbitControlParams = $rabbitControlParams + "absolute"
+        }
+        $rabbitControlParams = $rabbitControlParams + $Limit
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Set-RabbitMqFlowControl"
+    }
+}
+
+Function Clear-RabbitMqQueue {
+<#
+.SYNOPSIS
+    Clear all messages from a queue
+
+.DESCRIPTION
+    This command instructs RabbitMQ to delete all messages from a queue, specified by name
+
+.PARAMETER Queue
+    Required.  The readable name of the queue to clear.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER VHost
+    Default host is "/", the root virtual host.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #The command below clears all messages from the queue named "myqueue" on the "rabbit@LOCALHOST" node
+        Clear-RabbitMqQueue myqueue -Node rabbit@LOCALHOST
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory=$true, Position=1)]
+        [string] $Queue,
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Clear-RabbitMqQueue"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "purge_queue $Queue"
+
+        if($VHost){
+            Write-Verbose "Adding vhost parameter."
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
+        }
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Clear-RabbitMqQueue"
+    }
+}
+
+Function Get-RabbitMqReport {
+<#
+.SYNOPSIS
+    Server status report
+
+.DESCRIPTION
+    This command instructs RabbitMQ to print a server status report containing a concatenation of all server status information for support purposes.  Output should be redirected to a file to be attached to a support ticket.  Includes the output of Get-RabbitMqClusterStatus, Get-RabbitMqBrokerStatus, Get-RabbitMqStatistics, Get-RabbitMqEnvironment, etc.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #The command below prints a concatenated string containing detailed system state information on the "rabbit@LOCALHOST" node
+        Get-RabbitMqReport -Node rabbit@LOCALHOST
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Get-RabbitMqReport"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "report"
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Get-RabbitMqReport"
+    }
+}
+
+Function Remove-RabbitMqNodeFromCluster {
+<#
+.SYNOPSIS
+    Remove a node from the cluster
+
+.DESCRIPTION
+    This command instructs the controlling RabbitMQ node of a cluster to that another node will no longer participate in that cluster. The removed node must be offline. The controlling node must be online, unless the -ForceWhileOffline flag is specified.
+
+.PARAMETER Forget
+    Required. The node which is being removed from the cluster.
+
+.PARAMETER Node
+    A node in the cluster from which the -Forget node is being removed. Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER ForceWhileOffline
+    Forces the node to take control of an offline cluster in order to remove the specified node.  This may be destructive, as the recipient node becomes the system of record for cluster metadata, which may cause changes which occurred after the node was stopped to be lost.
+
+.EXAMPLE
+    #The command below removes the node "rabbit@ANOTHERHOST" from the cluster which includes "rabbit@LOCALHOST".
+        Remove-RabbitMqNodeFromCluster -Node rabbit@LOCALHOST -Forget rabbit@ANOTHERHOST
+
+.EXAMPLE
+    #This command removes the node "rabbit@ANOTHERHOST" from the cluster which includes "rabbit@LOCALHOST", using abbreviated syntax
+        Remove-RabbitMqNodeFromCluster rabbit@ANOTHERHOST
+
+.EXAMPLE
+    #This command removes the node "rabbit@ANOTHERHOST", regardless of the offline status of the cluster
+        Remove-RabbitMqNodeFromCluster rabbit@ANOTHERHOST -ForceWhileOffline
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory=$true, Position=1)]
+        [string] $Forget,
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [--offline]
+        [Parameter(Mandatory=$false)]
+        [switch] $ForceWhileOffline
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Remove-RabbitMqNodeFromCluster"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "forget_cluster_node $Forget"
+
+        if($ForceWhileOffline){
+            Write-Verbose "Adding offline parameter."
+            $rabbitControlParams = $rabbitControlParams + "--offline"
+        }
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Remove-RabbitMqNodeFromCluster"
+    }
+}
+
+Function Set-RabbitMqDiskFree {
+<#
+.SYNOPSIS
+    Sets the disk usage level where a low space alarm is triggered
+
+.DESCRIPTION
+    This command instructs RabbitMQ to turn on a disk usage alarm when remaining / available disk space falls below the specified threshold.
+
+.PARAMETER Limit
+    Required.  The minimum disk space remaining before an alarm is triggered.  By default, provided as a decimal multiple of installed RAM (i.e. 2.5 = 10GB disk space when 4GB RAM is installed).  Alternately, when the -Absolute flag is provided, can be a specific number of bytes (i.e. 2048000) or a string with memory units (i.e. 350MB).
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Absolute
+    Indicates that the Limit parameter provides a fixed disk space amount.
+
+.EXAMPLE
+    #This command triggersan alarm when the node "rabbit@LOCALHOST" has less than 15% of disk space free
+        Set-RabbitMqDiskFree 0.15 -Node rabbit@LOCALHOST
+
+.EXAMPLE
+    #The command below triggers an alarm when the default node has less than 1GB of disk space free
+        Set-RabbitMqDiskFree 1GB -Absolute
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory=$true, Position=1)]
+        [string] $Limit,
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [absolute]
+        [Parameter(Mandatory=$false)]
+        [switch] $Absolute
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Set-RabbitMqFlowControl"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        if($Absolute -ne $true){
+            if($Limit -lt 1) {
+                Write-Error "Warning: relative memory values until 1.0 can be dangerous, as system may have insufficient space to persist in-memory data."
+            }
+        }
+
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "set_disk_free_limit"
+        if($Absolute -ne $true){
+            Write-Verbose "Adding relative flag."
+            $rabbitControlParams = $rabbitControlParams + "mem_relative"
+        }
+        $rabbitControlParams = $rabbitControlParams + $Limit
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Set-RabbitMqDiskFree"
+    }
+}
+
+Function Set-RabbitMqClusterName {
+<#
+.SYNOPSIS
+    Sets the readable name of a cluster
+
+.DESCRIPTION
+    This command instructs RabbitMQ to change the name of a cluster to the specified value.
+
+.PARAMETER Name
+    Required.  The new, human-readable name for the cluster.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #This command changes the name of the cluster of which rabbit@LOCALHOST is a member to "recovery"
+        Set-RabbitMqClusterName recovery -Node rabbit@LOCALHOST
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory=$true, Position=1)]
+        [string] $Name,
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Set-RabbitMqClusterName"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "set_cluster_name $Name"
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Set-RabbitMqClusterName"
+    }
+}
+
+Function Set-RabbitMqClusterNodeType {
+<#
+.SYNOPSIS
+    Sets the type of a cluster node
+
+.DESCRIPTION
+    This command instructs RabbitMQ to change the node type (i.e. RAM or DISC) of a node in a cluster to the specified value.  Note that the node must be stopped (i.e. with Stop-RabbitMq) prior to running this command.
+
+.PARAMETER Type
+    Required.  Allowed values are "disc" or "RAM".
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #This command changes the node rabbit@LOCALHOST from a RAM node to a DISC node on its current cluster
+        Set-RabbitMqClusterNodeType disc -Node rabbit@LOCALHOST
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory=$true, Position=1)]
+        [ValidateSet("disc", "ram")]
+        [string] $Type,
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Set-RabbitMqClusterNodeType"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "change_cluster_node_type $Type"
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Set-RabbitMqClusterNodeType"
+    }
+}
+
+Function Stop-RabbitMqMirroringSync {
+<#
+.SYNOPSIS
+    Stops trying to synch versions of a mirrored queue
+
+.DESCRIPTION
+    This command instructs RabbitMQ to stop synchronizing a mirrored queue, by name.
+
+.PARAMETER Queue
+    Required.  Name of the queue to remove from synchronization on the node, and being processing messages normally.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER VHost
+    Default host is "/", the root virtual host.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #This command stops "myqueue" from the list of queues being mirrored on rabbit@LOCALHOST
+        Stop-RabbitMqMirroringSync myqueue -Node rabbit@LOCALHOST
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory=$true, Position=1)]
+        [string] $Queue,
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Stop-RabbitMqMirroringSync"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "cancel_sync_queue $Queue"
+
+        if($VHost){
+            Write-Verbose "Adding vhost parameter."
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
+        }
+
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Stop-RabbitMqMirroringSync"
+    }
+}
+
+Function Start-RabbitMqMirroringSync {
+<#
+.SYNOPSIS
+    Adds mirroring for a queue
+
+.DESCRIPTION
+    This command instructs RabbitMQ to pause a queue and bring a mirrored queue into synch, by name.  The queue will block (not recieve or publish messages) while the two queues are being aligned.  Because active queues which are being drained will eventually be synhronized naturally, this command is primarily used for queues which are not being drained.
+
+.PARAMETER Queue
+    Required.  Name of the queue to synchronize.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER VHost
+    Default host is "/", the root virtual host.
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #This command ensures that all messages in the mirrored "myqueue" queue are present slave queues
+        Set-RabbitMqMirroring myqueue -Node rabbit@LOCALHOST
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory=$true, Position=1)]
+        [string] $Queue,
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [String] $VHost=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Start-RabbitMqMirroringSync"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "sync_queue $Queue"
+
+        if($VHost){
+            Write-Verbose "Adding vhost parameter."
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
+        }
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Start-RabbitMqMirroringSync"
+    }
+}
+
+Function Stop-RabbitMqHost {
+<#
+.SYNOPSIS
+    Stops the Erlang host / VM
+
+.DESCRIPTION
+    This command instructs the RabbitMQ node to stop the RabbitMQ Erlang node / VM.  Details:
+        -This command generally run prior to shutting down the actual server.  To stop the RabbitMQ app, use Stop-RabbitMq.
+        -To restart, follow the instructions for Running the Server in the installation guide.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker stopup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.PARAMETER Pid
+    A process ID name / path to wait for termination on when stopping.  See also Wait-RabbitMq.
+
+.EXAMPLE
+    #Stops the RabbitMQ host VM at Node rabbit@HOSTNAME and suppress informational messages.
+        Stop-RabbitMqHost -Node "rabbit@HOSTNAME" -Quiet
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
+
+        # rabbitmqctl parameter [pid]
+        [Parameter(Mandatory=$false)]
+        [string] $PidName=$null
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Stop-RabbitMqHost"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "stop"
+        if($PidName){
+            Write-Verbose "Adding pid parameter."
+            $rabbitControlParams = $rabbitControlParams + $PidName
+        }
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Stop-RabbitMqHost"
+    }
+}
+
+Function Reset-RabbitMqCluster {
+<#
+.SYNOPSIS
+    Resets the cluster "controller" for an offline node
+
+.DESCRIPTION
+    This command instructs an already clustered offline node to contact the specified node when waking up.  It is similar to a forwarding address for the cluster.
+    - Differs from Set-RabbitMqCluster in that the node is already in the cluster, but may be out of synch and attempting to rejoin using a no longer valid node for the cluster.
+    - Primarily used when the cluster members have changed while the target node is offline.  For example, in a rolling outage of a cluster containing Node1 and Node2, Node1 might go down, be replaced by Node3, then Node2 might be brought down and Node1 restarted.  This command informs Node1 to use Node3 for the latest cluster info, since Node2 is offline.
+
+.PARAMETER ClusterNode
+    Required. A node that is currently in the cluster.
+
+.PARAMETER Node
+    The node to re-attach to the cluster. Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker stopup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #Re-adds node rabbit@HOSTNAME to the cluster which rabbit@ANOTHERHOST is currently part of.
+        Reset-RabbitMqCluster -Node rabbit@HOSTNAME -Cluster rabbit@ANOTHERHOST
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [clusternode]
+        [Parameter(Mandatory=$true, Position=1)]
+        [string] $Cluster,
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Reset-RabbitMqCluster"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "update_cluster_nodes $Cluster"
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Reset-RabbitMqCluster"
+    }
+}
+
+Function Invoke-RabbitMqEval {
+<#
+.SYNOPSIS
+    Evaluate an arbitrary Erlang expression
+
+.DESCRIPTION
+    This command instructs the node to submit a command to the Erlang VM for evaluation.  
+
+.PARAMETER Expr
+    Required.  The Erlang expression to evaluate.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker stopup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #Executes an internal Elrang command which identified suspicious processes which might be deadlocked / stuck
+        Invoke-RabbitMqEval 'rabbit_diagnostics:maybe_stuck().' -Node rabbit@HOSTNAME 
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [expr]
+        [Parameter(Mandatory=$true, Position=1)]
+        [string] $Expr,
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Invoke-RabbitMqEval"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "eval $Expr"
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Invoke-RabbitMqEval"
+    }
+}
+
+Function Reset-RabbitMqClusterNames {
+<#
+.SYNOPSIS
+    Changes the readable names of nodes in the cluster
+
+.DESCRIPTION
+    This command instructs RabbitMQ to update internal references to cluster nodes, by specifying old-value / new-value pairs.  The local node must be completely stopped prior to running this command.
+    - It is possible to stop all nodes and rename them all simultaneously (in which case old and new names for all nodes must be given to every node) or stop and rename nodes one at a time (in which case each node only needs to be told how its own name is changing).
+
+.PARAMETER Names
+    Required.  Array of name changes in the format "A=>B" where A is the old name and B is the new name.
+
+.PARAMETER Node
+    Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
+
+.PARAMETER Quiet
+    Informational messages are suppressed when quiet mode is in effect.
+
+.EXAMPLE
+    #This command changes the name of the cluster of which rabbit@LOCALHOST is a member to "recovery"
+        Reset-RabbitMqClusterName "passive=>active","backup=>standby","nydatacenter=>offshoredatacenter" -Node rabbit@LOCALHOST
+
+.FUNCTIONALITY
+    RabbitMQ
+#>
+    [cmdletbinding()]
+    param (
+        # rabbitmqctl parameter [oldnode newnode]
+        [Parameter(Mandatory=$true, Position=1)]
+        [string[]] $Names,
+
+        # rabbitmqctl parameter [-n node]
+        [Parameter(Mandatory=$false)]
+        [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet
+    )
+    
+    Begin
+    {
+        Write-Verbose "Begin: Reset-RabbitMqClusterNames"
+    }
+    
+    Process
+    {
+        Try
+        {
+            $rabbitControlPath = Find-RabbitMqCtl
+        }
+        
+        Catch
+        {
+            Break
+        }
+
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet
+
+        Write-Verbose "Adding command parameter."
+        $rabbitControlParams = $rabbitControlParams + "rename_cluster_node"
+
+        $Names | ForEach {
+            $items = $_ -split "=>" 
+            if($items.Length -eq 2) {
+                Write-Verbose "Adding name change parameter."
+                $rabbitControlParams = $rabbitControlParams + $items[0]
+                $rabbitControlParams = $rabbitControlParams + $items[1]
+            } else {
+                Write-Error "Invalid parameter format: values must be supplied in the format old_name=>new_name."
+                Write-Error "Value supplied: $_"
+                return;
+            }
+        }
+
+        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
+        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+    }
+
+    End
+    {
+        Write-Verbose "End: Reset-RabbitMqClusterNames"
+    }
+}
+
+
+
 # Export Declarations --------------------------------------------------------------------------------------------------
 Export-ModuleMember -Function Add-RabbitMqUser
 Export-ModuleMember -Function Add-RabbitMqVHost
 Export-ModuleMember -Function Clear-RabbitMqParameter
 Export-ModuleMember -Function Clear-RabbitMqPassword
 Export-ModuleMember -Function Clear-RabbitMqPolicy
+Export-ModuleMember -Function Clear-RabbitMqQueue
+Export-ModuleMember -Function Clear-RabbitMqTrace
+Export-ModuleMember -Function Clear-RabbitMqUserPermissions
 Export-ModuleMember -Function Confirm-RabbitMqCredentials
 Export-ModuleMember -Function Get-RabbitMqBindings
+Export-ModuleMember -Function Get-RabbitMqBrokerStatus
 Export-ModuleMember -Function Get-RabbitMqChannels
+Export-ModuleMember -Function Get-RabbitMqClusterStatus
 Export-ModuleMember -Function Get-RabbitMqConnections
 Export-ModuleMember -Function Get-RabbitMqConsumers
 Export-ModuleMember -Function Get-RabbitMqEncoderOptions
@@ -3355,21 +4861,35 @@ Export-ModuleMember -Function Get-RabbitMqParameters
 Export-ModuleMember -Function Get-RabbitMqPermissionsByUser
 Export-ModuleMember -Function Get-RabbitMqPermissionsByVHost
 Export-ModuleMember -Function Get-RabbitMqPolicies
-Export-ModuleMember -Function Get-RabbitMqStats
+Export-ModuleMember -Function Get-RabbitMqReport
+Export-ModuleMember -Function Get-RabbitMqStatistics
 Export-ModuleMember -Function Get-RabbitMqUsers
 Export-ModuleMember -Function Get-RabbitMqVHosts
 Export-ModuleMember -Function Invoke-RabbitMqEncoder
+Export-ModuleMember -Function Invoke-RabbitMqEval
 Export-ModuleMember -Function Invoke-RabbitMqDecoder
+Export-ModuleMember -Function Invoke-RabbitMqLogSwap
 Export-ModuleMember -Function Remove-RabbitMqConnection
+Export-ModuleMember -Function Remove-RabbitMqNodeFromCluster
 Export-ModuleMember -Function Remove-RabbitMqUser
 Export-ModuleMember -Function Remove-RabbitMqVHost
-Export-ModuleMember -Function Reset-RabbitMPassword
 Export-ModuleMember -Function Reset-RabbitMq
+Export-ModuleMember -Function Reset-RabbitMqCluster
+Export-ModuleMember -Function Reset-RabbitMqClusterNames
+Export-ModuleMember -Function Reset-RabbitMqPassword
 Export-ModuleMember -Function Start-RabbitMq
+Export-ModuleMember -Function Start-RabbitMqMirroringSync
 Export-ModuleMember -Function Set-RabbitMqCluster
+Export-ModuleMember -Function Set-RabbitMqClusterName
+Export-ModuleMember -Function Set-RabbitMqClusterNodeType
+Export-ModuleMember -Function Set-RabbitMqDiskFree
+Export-ModuleMember -Function Set-RabbitMqFlowControl
 Export-ModuleMember -Function Set-RabbitMqParameter
 Export-ModuleMember -Function Set-RabbitMqPolicy
+Export-ModuleMember -Function Set-RabbitMqTrace
 Export-ModuleMember -Function Set-RabbitMqUserPermissions
 Export-ModuleMember -Function Set-RabbitMqUserTags
 Export-ModuleMember -Function Stop-RabbitMq
+Export-ModuleMember -Function Stop-RabbitMqHost
+Export-ModuleMember -Function Stop-RabbitMqMirroringSync
 Export-ModuleMember -Function Wait-RabbitMq
