@@ -126,7 +126,7 @@ Function Add-RabbitMqUser {
 
 .EXAMPLE
     #This command instructs RabbitMQ to create a (non-administrative) user named tonyg with (initial) password changeit at Node rabbit@HOSTNAME and suppresses informational messages.
-        Add-RabbitMqUser -Node "rabbit@HOSTNAME" -Username tonyg -Password chageit -Quiet
+        Add-RabbitMqUser -Node "rabbit@HOSTNAME" -Username tonyg -Password changeit -Quiet
 
 .FUNCTIONALITY
     RabbitMQ
@@ -205,7 +205,7 @@ Function Add-RabbitMqVHost {
 
 .EXAMPLE
     #This command instructs RabbitMQ to create a virtual host named new_host Node rabbit@HOSTNAME and suppresses informational messages.
-        Add-RabbitMqVHost -Node "rabbit@HOSTNAME" -VHost new_host -Password chageit -Quiet
+        Add-RabbitMqVHost -Node "rabbit@HOSTNAME" -VHost new_host -Quiet
 
 .FUNCTIONALITY
     RabbitMQ
@@ -499,7 +499,7 @@ Function Confirm-RabbitMqCredentials {
 
     End
     {
-        Write-Verbose "End: Reset-RabbitMq"
+        Write-Verbose "End: Confirm-RabbitMqCredentials"
     }
 }
 
@@ -532,6 +532,10 @@ Function Get-RabbitMqUsers {
         # rabbitmqctl parameter [-n node]
         [Parameter(Mandatory=$false)]
         [String] $Node=$null,
+
+        # rabbitmqctl parameter [-q (quiet)]
+        [Parameter(Mandatory=$false)]
+        [switch] $Quiet,
 
         # rabbitmqctl parameter [-t timeout]
         [Parameter(Mandatory=$false)]
@@ -1122,8 +1126,8 @@ Function Set-RabbitMqUserTags {
     Zero, one or more tags to set. Any existing tags will be removed.
 
 .EXAMPLE
-    #This command instructs RabbitMQ to ensure the user named tonyg is an administrator on the node rabbit@HOSTNAME and suppressed informational messages. This has no effect when the user logs in via AMQP, but can be used to permit the user to manage users, virtual hosts and permissions when the user logs in via some other means (for example with the management plugin).
-        Set-RabbitMqUserTags -Node "rabbit@HOSTNAME" -Username tonyg -Tag administrator -Quiet
+    #This command instructs RabbitMQ to ensure the user named tonyg is an administrator on the node rabbit@HOSTNAME, has management plugin rights, and suppressed informational messages. This has no effect when the user logs in via AMQP, but can be used to permit the user to manage users, virtual hosts and permissions when the user logs in via some other means (for example with the management plugin).
+        Set-RabbitMqUserTags -Node "rabbit@HOSTNAME" -Username tonyg -Tag administrator,management -Quiet
 
 .EXAMPLE
     #This command instructs RabbitMQ to remove any tags from the user named tonyg.
@@ -1145,8 +1149,8 @@ Function Set-RabbitMqUserTags {
         [Parameter(Mandatory=$true)]
         [string] $Username,
 
-        [Parameter(Mandatory=$true)]
-        [string[]] $Tag
+        [Parameter(Mandatory=$false)]
+        [string[]] $Tag=@("")
     )
     
     Begin
@@ -1325,7 +1329,7 @@ Function Wait-RabbitMq {
     }
 }
 
-Function Get-RabbitMqStatistics {
+Function Get-RabbitMqQueues {
 <#
 .SYNOPSIS
     Lists the RabbitMq queues present on a host, as well as metadata about the current queue state.
@@ -1338,14 +1342,20 @@ Function Get-RabbitMqStatistics {
 .PARAMETER Node
     Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
 
+.PARAMETER VHost
+    The name of the virtual host to query.
+
 .PARAMETER Quiet
     Informational messages are suppressed when quiet mode is in effect.
 
 .PARAMETER Timeout
     Operation timeout in seconds.
 
+.PARAMETER InfoItems
+    List of metadata items to be returned regarding the queue.  Default is name,
+
 .EXAMPLE
-    Get-RabbitMqStatistics name,messages,head_message_timestamp
+    Get-RabbitMqQueues -InfoItems name,messages,head_message_timestamp
 
 .FUNCTIONALITY
     RabbitMQ
@@ -1355,6 +1365,10 @@ Function Get-RabbitMqStatistics {
         # rabbitmqctl parameter [-n node]
         [Parameter(Mandatory=$false)]
         [String] $Node=$null,
+
+        # rabbitmqctl parameter [-p vhost]
+        [Parameter(Mandatory=$false)]
+        [string] $VHost,
 
         # rabbitmqctl parameter [-q (quiet)]
         [Parameter(Mandatory=$false)]
@@ -1377,7 +1391,7 @@ Function Get-RabbitMqStatistics {
 
     Begin
     {
-        Write-Verbose "Begin: Get-RabbitMqStatistics"
+        Write-Verbose "Begin: Get-RabbitMqQueues"
     }
     
     Process
@@ -1401,13 +1415,18 @@ Function Get-RabbitMqStatistics {
 
         $rabbitControlParams = $rabbitControlParams + "list_queues $LocaleFlag $InfoItems"
 
-        Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
-        Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
+        if($VHost){
+            Write-Verbose "Adding vhost parameter."
+            $rabbitControlParams = $rabbitControlParams + "-p $VHost"
+        }
+
+        $stdOut = Get-StdOut -filename $rabbitControlPath -arguments $rabbitControlParams
+        return $stdOut
     }
 
     End
     {
-        Write-Verbose "End: Get-RabbitMqStatistics"
+        Write-Verbose "End: Get-RabbitMqQueues"
     }
 }
 
@@ -1686,7 +1705,7 @@ Function Get-RabbitMqConnections {
 
 .EXAMPLE
     #This command displays the name and username associated with the channel, and whether confirm mode is enabled for the virtual host named local_rabbitmq.
-    Get-RabbitMqChannels -VHost local_rabbitmq -InfoItems name,user,confirm
+    Get-RabbitMqConnections -VHost local_rabbitmq -InfoItems name,user,confirm
 
 .FUNCTIONALITY
     RabbitMQ
@@ -3982,7 +4001,7 @@ Function Get-RabbitMqReport {
     Server status report
 
 .DESCRIPTION
-    This command instructs RabbitMQ to print a server status report containing a concatenation of all server status information for support purposes.  Output should be redirected to a file to be attached to a support ticket.  Includes the output of Get-RabbitMqClusterStatus, Get-RabbitMqBrokerStatus, Get-RabbitMqStatistics, Get-RabbitMqEnvironment, etc.
+    This command instructs RabbitMQ to print a server status report containing a concatenation of all server status information for support purposes.  Output should be redirected to a file to be attached to a support ticket.  Includes the output of Get-RabbitMqClusterStatus, Get-RabbitMqBrokerStatus, Get-RabbitMqQueues, Get-RabbitMqEnvironment, etc.
 
 .PARAMETER Node
     Default node is "rabbit@server", where server is the local host. On a host named "server.example.com", the node name of the RabbitMQ Erlang node will usually be rabbit@server (unless RABBITMQ_NODENAME has been set to some non-default value at broker startup time).
@@ -4469,7 +4488,7 @@ Function Start-RabbitMqMirroringSync {
 
 .EXAMPLE
     #This command ensures that all messages in the mirrored "myqueue" queue are present slave queues
-        Set-RabbitMqMirroring myqueue -Node rabbit@LOCALHOST
+        Start-RabbitMqMirroringSync myqueue -Node rabbit@LOCALHOST
 
 .FUNCTIONALITY
     RabbitMQ
@@ -4770,7 +4789,7 @@ Function Reset-RabbitMqClusterNames {
 
 .EXAMPLE
     #This command changes the name of the cluster of which rabbit@LOCALHOST is a member to "recovery"
-        Reset-RabbitMqClusterName "passive=>active","backup=>standby","nydatacenter=>offshoredatacenter" -Node rabbit@LOCALHOST
+        Reset-RabbitMqClusterNames "passive=>active","backup=>standby","nydatacenter=>offshoredatacenter" -Node rabbit@LOCALHOST
 
 .FUNCTIONALITY
     RabbitMQ
@@ -4934,7 +4953,7 @@ Export-ModuleMember -Function Get-RabbitMqPermissionsByUser
 Export-ModuleMember -Function Get-RabbitMqPermissionsByVHost
 Export-ModuleMember -Function Get-RabbitMqPolicies
 Export-ModuleMember -Function Get-RabbitMqReport
-Export-ModuleMember -Function Get-RabbitMqStatistics
+Export-ModuleMember -Function Get-RabbitMqQueues
 Export-ModuleMember -Function Get-RabbitMqUsers
 Export-ModuleMember -Function Get-RabbitMqVHosts
 Export-ModuleMember -Function Invoke-RabbitMqDecoder
