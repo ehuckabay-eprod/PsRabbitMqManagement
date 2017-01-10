@@ -66,8 +66,16 @@ Function Get-StdOut {
         [String] $filename,
 
         [Parameter(Mandatory=$false)]
-        [string[]] $arguments
+        [string[]] $arguments,
+
+        #timeout in seconds
+        [Parameter(Mandatory=$false)]
+        [int] $Timeout=20
     )
+
+    if($Timeout = 0){
+        $Timeout = 20
+    }
 
     $commandString = "$rabbitControlPath $rabbitControlParams"
     Write-Verbose "Executing command: $commandString"
@@ -85,7 +93,7 @@ Function Get-StdOut {
     $process = New-Object System.Diagnostics.Process
     $process.StartInfo = $processInfo
     $process.Start() | Out-Null
-    $process.WaitForExit()
+    $process.WaitForExit($Timeout * 1000)
 
     if ($process.ExitCode -ne 0)
     {
@@ -559,12 +567,12 @@ Function Get-RabbitMqUsers {
             Break
         }
 
-        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $true -Timeout $Timeout
+        [string[]] $rabbitControlParams = Build-RabbitMq-Params -Node $Node -Quiet $Quiet -Timeout $Timeout
 
         Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "list_users"
         
-        $stdOut = Get-StdOut -filename $rabbitControlPath -arguments $rabbitControlParams
+        $stdOut = Get-StdOut -filename $rabbitControlPath -arguments $rabbitControlParams -Timeout $Timeout
         Write-Host $stdOut
 
         # pattern: word characters, space, non-digits (including space and comma)
@@ -668,7 +676,7 @@ Function Get-RabbitMqVHosts {
             $rabbitControlParams = $rabbitControlParams + $VHostInfoItems
         }
         
-        $stdOut = Get-StdOut -filename $rabbitControlPath -arguments $rabbitControlParams
+        $stdOut = Get-StdOut -filename $rabbitControlPath -arguments $rabbitControlParams -Timeout $Timeout
         Write-Host $stdOut
 
         # this block allows the object creator to match output in arbitrary order (i.e. "name,tracing" vs "tracing,name")
@@ -1420,7 +1428,7 @@ Function Get-RabbitMqQueues {
             $rabbitControlParams = $rabbitControlParams + "-p $VHost"
         }
 
-        $stdOut = Get-StdOut -filename $rabbitControlPath -arguments $rabbitControlParams
+        $stdOut = Get-StdOut -filename $rabbitControlPath -arguments $rabbitControlParams -Timeout $Timeout
         return $stdOut
     }
 
