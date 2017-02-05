@@ -1158,7 +1158,7 @@ Function Set-RabbitMqUserTags {
         [string] $Username,
 
         [Parameter(Mandatory=$false)]
-        [string[]] $Tag=@("")
+        [string] $Tag
     )
     
     Begin
@@ -1186,9 +1186,12 @@ Function Set-RabbitMqUserTags {
         Write-Verbose "Adding username parameter."
         $rabbitControlParams = $rabbitControlParams + $Username
 
-        Write-Verbose "Adding tag parameter."
-        $rabbitControlParams = $rabbitControlParams + $Tag
-        
+        if ($Tag) {
+            Write-Verbose "Adding tag parameter."
+            $parsedTag = $Tag -split ","
+            $rabbitControlParams = $rabbitControlParams + $parsedTag
+        }
+
         Write-Verbose "Executing command: $rabbitControlPath $rabbitControlParams"
         Start-Process -ArgumentList $rabbitControlParams -FilePath "$rabbitControlPath" -NoNewWindow -Wait
     }
@@ -3716,6 +3719,10 @@ Function Invoke-RabbitMqLogSwap {
         [Parameter(Mandatory=$false)]
         [String] $VHost=$null,
 
+        # rabbitmqctl parameter [suffix]
+        [Parameter(Mandatory=$false)]
+        [string] $Suffix,
+
         # rabbitmqctl parameter [-q (quiet)]
         [Parameter(Mandatory=$false)]
         [switch] $Quiet,
@@ -3747,8 +3754,12 @@ Function Invoke-RabbitMqLogSwap {
         Write-Verbose "Adding command parameter."
         $rabbitControlParams = $rabbitControlParams + "rotate_logs"
         if($Delete -ne $true){
-            Write-Verbose "Adding suffix parameter."
-            $rabbitControlParams = $rabbitControlParams + $Suffix
+            if($Suffix) {
+                Write-Verbose "Adding suffix parameter."
+                $rabbitControlParams = $rabbitControlParams + $Suffix
+            } else {
+                Write-Error "Suffix parameter is required if Delete flag is not specified."
+            }
         } else {
             Write-Verbose "Delete specified - no log archives created."
         }
