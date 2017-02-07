@@ -61,6 +61,7 @@ Function Find-RabbitMqCtl {
 }
 
 Function Get-StdOut {
+    [OutputType([String])]
     param (
         [Parameter(Mandatory=$true)]
         [String] $filename,
@@ -73,12 +74,13 @@ Function Get-StdOut {
         [int] $Timeout=20
     )
 
-    if($Timeout = 0){
+    if($Timeout -eq 0){
         $Timeout = 20
     }
 
     $commandString = "$rabbitControlPath $rabbitControlParams"
     Write-Verbose "Executing command: $commandString"
+    Write-Verbose "Timeout: $Timeout"
     $processInfo = New-Object System.Diagnostics.ProcessStartInfo
     $processInfo.FileName = $filename
     $processInfo.RedirectStandardError = $true
@@ -93,17 +95,19 @@ Function Get-StdOut {
     $process = New-Object System.Diagnostics.Process
     $process.StartInfo = $processInfo
     $process.Start() | Out-Null
-    $process.WaitForExit($Timeout * 1000)
 
+    Write-Verbose "Getting output from command $commandString"
+    $stdout = $process.StandardOutput.ReadToEnd()
+    $process.WaitForExit($Timeout * 1000)
+    
     if ($process.ExitCode -ne 0)
     {
         Write-Error "Error:  Error executing command:  $commandString"
         $stderr = $process.StandardError.ReadToEnd()
+        Write-Verbose $stderr
         throw $stderr
     }
 
-    Write-Verbose "Getting output from command $commandString"
-    $stdout = $process.StandardOutput.ReadToEnd()
     return $stdout
 }
 
@@ -648,14 +652,14 @@ Function Get-RabbitMqUsers {
         $rabbitControlParams = $rabbitControlParams + "list_users"
         
         $stdOut = Get-StdOut -filename $rabbitControlPath -arguments $rabbitControlParams -Timeout $Timeout
-        Write-Host $stdOut
+        Write-Host $stdOut[1]
 
         # pattern: word characters, space, non-digits (including space and comma)
         $pattern = '^(?<Username>[\w]+)\s+\[(?<Tags>[\D]*)\]$'
         Write-Verbose "Object creation pattern: $($pattern)"
 
         $results = @()
-        $lines = $stdout -split "\n" | ForEach {
+        $lines = $stdOut -split "\n" | ForEach {
             if($_ -match $pattern) {
                 $obj = [PSCustomObject]@{
                     Username = $matches.Username
@@ -752,7 +756,7 @@ Function Get-RabbitMqVHosts {
         }
         
         $stdOut = Get-StdOut -filename $rabbitControlPath -arguments $rabbitControlParams -Timeout $Timeout
-        Write-Host $stdOut
+        Write-Host $stdOut[1]
 
         # this block allows the object creator to match output in arbitrary order (i.e. "name,tracing" vs "tracing,name")
         # host pattern: word characters and forward slashes
@@ -780,7 +784,7 @@ Function Get-RabbitMqVHosts {
         Write-Verbose "Object creation pattern: $($final_pattern)"
 
         $results = @()
-        $lines = $stdout -split "\n" | ForEach {
+        $lines = $stdout[1] -split "\n" | ForEach {
             if($_ -match $final_pattern) {
                 $obj = [PSCustomObject]@{
                     Hostname = $matches.Hostname
@@ -1500,7 +1504,8 @@ Function Get-RabbitMqQueues {
         }
 
         $stdOut = Get-StdOut -filename $rabbitControlPath -arguments $rabbitControlParams -Timeout $Timeout
-        return $stdOut
+        #$stdOut = Remove-Truth $stdOut
+        return $stdOut[1]
     }
 
     End
